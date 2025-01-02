@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35122.118
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YoloPerson", "YoloPerson\YoloPerson.csproj", "{D8263000-2F66-4074-8141-F743D75B5474}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D8263000-2F66-4074-8141-F743D75B5474}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D8263000-2F66-4074-8141-F743D75B5474}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8263000-2F66-4074-8141-F743D75B5474}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8263000-2F66-4074-8141-F743D75B5474}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {699D57A2-9F91-4932-BBE1-5354C39EC64D}
+	EndGlobalSection
+EndGlobal
