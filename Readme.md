@@ -66,7 +66,7 @@ This version introduces performance optimizations, additional functionality, and
   A new project was added to provide a benchmarking layer, enabling testing of individual methods to determine the most efficient in terms of execution time and CPU usage.
   
 - **`MatToTensorParallel` Method in `SessionGpu`**  
-  A new method for creating tensors more quickly, with reduced CPU usage compared to the previous method.
+  A new method for creating tensors more quickly, with improved execution time in milliseconds compared to the previous method.
 
 ### Changed
 - **Enhanced `SessionGpu` Constructor**  
