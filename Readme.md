@@ -53,3 +53,37 @@ YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YO
 - Integrate visualization directly into the project interface.
 - Incorporate ByteTrack for advanced tracking capabilities.
 
+---
+
+# Changelog
+
+## Version 1.0.1
+
+This version introduces performance optimizations, additional functionality, and improvements in code quality and readability.
+
+### Added
+- **`BenchMarksMethods` Project**  
+  A new project was added to provide a benchmarking layer, enabling testing of individual methods to determine the most efficient in terms of execution time and CPU usage.
+  
+- **`MatToTensorParallel` Method in `SessionGpu`**  
+  A new method for creating tensors more quickly, with reduced CPU usage compared to the previous method.
+
+### Changed
+- **Enhanced `SessionGpu` Constructor**  
+  Additional configuration parameters were introduced, resulting in a slight improvement in inference speed.
+
+- **Updated Preprocessing in `PreProcessed.cs`**  
+  Adjusted the preprocessing logic to focus exclusively on detecting people, as this is the only required functionality for this implementation. Previously, it iterated over all possible objects YOLOv11 could detect.
+
+- **Comments Updated to English**  
+  All comments were reviewed and converted to English for improved clarity and consistency.
+
+### Removed
+- **Unnecessary Comments**  
+  Redundant or outdated comments were removed for better code readability.
+
+---
+
+## Version 1.0.0
+- Initial release with foundational functionality and YOLOv11 integration.
+
