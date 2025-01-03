@@ -13,7 +13,7 @@ namespace YoloPerson.VideoCapture
             int newW = (int)Math.Floor(srcW * r);
             int newH = (int)Math.Floor(srcH * r);
 
-            padX = (dstW - newW) / 2; // alinear al centro
+            padX = (dstW - newW) / 2;
             padY = (dstH - newH) / 2;
 
             Mat resized = new Mat();

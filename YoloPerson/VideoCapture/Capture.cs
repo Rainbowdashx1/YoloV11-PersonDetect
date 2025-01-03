@@ -1,5 +1,7 @@
-﻿using Microsoft.ML.OnnxRuntime.Tensors;
+﻿using Dia2Lib;
+using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
+using System.Diagnostics;
 using YoloPerson.Nvidia;
 using YoloPerson.PreProcess;
 
@@ -33,10 +35,9 @@ namespace YoloPerson.VideoCapture
             int frameWidth = (int)videoCapture.FrameWidth;
             int frameHeight = (int)videoCapture.FrameHeight;
 
-            // Crear el escritor de video para el archivo procesado
             using var videoWriter = new OpenCvSharp.VideoWriter(
                 videoProcessPath,
-                FourCC.XVID, // Usa el codec deseado, aquí un ejemplo con XVID
+                FourCC.XVID,
                 fps,
                 new OpenCvSharp.Size(frameWidth, frameHeight)
             );
@@ -56,16 +57,11 @@ namespace YoloPerson.VideoCapture
                 if (frame.Empty())
                     break;
 
-                // Procesar el cuadro y obtener las detecciones
                 List<Detection> detections = ProcessFrame(frame);
 
-                // Dibujar las detecciones en el cuadro
                 DrawDetections(frame, detections);
-
-                // Escribir el cuadro procesado en el video de salida
                 videoWriter.Write(frame);
 
-                // Opcional: Mostrar el cuadro procesado
                 Cv2.ImShow("Cuadro Actual", frame);
 
                 if (Cv2.WaitKey(1) >= 0)
@@ -80,7 +76,7 @@ namespace YoloPerson.VideoCapture
             int padX, padY;
             var matframeLetterbox = process.Letterbox(frame, 640, 640,out r, out padX, out padY);
             Tensor<float>? output0 = session.SessionRun(matframeLetterbox);
-            return prePro.PreproccessedOutput(output0,padX,padY,r);
+            return prePro.PreproccessedOutput(output0, padX, padY, r);
         }
         private void DrawDetections(Mat frame, List<Detection> detections)
         {
@@ -91,10 +87,8 @@ namespace YoloPerson.VideoCapture
                 int x2 = (int)detection.X2;
                 int y2 = (int)detection.Y2;
 
-                // Dibujar el rectángulo
                 Cv2.Rectangle(frame, new OpenCvSharp.Point(x1, y1), new OpenCvSharp.Point(x2, y2), Scalar.Red, 2);
 
-                // Agregar texto opcional con la clase y la puntuación
                 string label = $"Clase {detection.ClassId} ({detection.Score:P1})";
                 Cv2.PutText(frame, label, new OpenCvSharp.Point(x1, y1 - 10), HersheyFonts.HersheySimplex, 0.5, Scalar.Yellow, 1);
             }

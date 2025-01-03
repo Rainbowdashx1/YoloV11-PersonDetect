@@ -4,17 +4,18 @@ namespace YoloPerson.PreProcess
 {
     public class Preprocessed
     {
-        public List<Detection> PreproccessedOutput(Tensor<float>? output0,int padX,int padY,float r,bool nonMaxSuppression = true,float nonMaxSuppressionThreshold = 0.45f, float thresHold = 0.25f) 
+        public List<Detection> PreproccessedOutput(Tensor<float>? output0, int padX, int padY, float r, bool nonMaxSuppression = true, float nonMaxSuppressionThreshold = 0.45f, float thresHold = 0.25f)
         {
             List<Detection> detections = new List<Detection>();
 
-            if(output0 is null)
+            if (output0 is null)
                 return detections;
 
             var dims = output0.Dimensions;
             int batch = dims[0];
-            int channels = dims[1];       
+            int channels = dims[1];
             int numPreds = dims[2];
+            int maxClsIdx = 4;
 
             for (int i = 0; i < numPreds; i++)
             {
@@ -23,26 +24,13 @@ namespace YoloPerson.PreProcess
                 float w = output0[0, 2, i];
                 float h = output0[0, 3, i];
 
-                float maxClsScore = float.MinValue;
-                int maxClsIdx = -1;
-                for (int c = 4; c < 84; c++)
-                {
-                    float clsScore = output0[0, c, i];
-                    if (clsScore > maxClsScore)
-                    {
-                        maxClsScore = clsScore;
-                        maxClsIdx = c - 4;
-                    }
-                }
+                float clsScore = output0[0, 4, i]; // We only look for the score of people; if you want to search for something else, change the 4 or modify the search logic
 
-                if (maxClsIdx != 0)// filtra solo las personas 
-                    continue;
-
-                if (maxClsScore < thresHold)
+                if (clsScore < thresHold)
                     continue;
 
                 // --------------------------------------------------------------------------------
-                // A) xywh -> x1,y1,x2,y2 en LA IMAGEN LETTERBOX (640x640)
+                // A) xywh -> x1, y1, x2, y2 in the LETTERBOX IMAGE (640x640)
                 // --------------------------------------------------------------------------------
                 float x1_640 = xCenter - w / 2f;
                 float y1_640 = yCenter - h / 2f;
@@ -50,7 +38,7 @@ namespace YoloPerson.PreProcess
                 float y2_640 = yCenter + h / 2f;
 
                 // --------------------------------------------------------------------------------
-                // B) Quitar el padding aplicado en letterbox
+                // B) Remove the padding applied in the letterbox
                 // --------------------------------------------------------------------------------
                 float x1_nopad = x1_640 - padX;
                 float y1_nopad = y1_640 - padY;
@@ -58,30 +46,30 @@ namespace YoloPerson.PreProcess
                 float y2_nopad = y2_640 - padY;
 
                 // --------------------------------------------------------------------------------
-                // C) Escalar de vuelta a la imagen original dividiendo por 'ratio'
+                // C) Scale back to the original image by dividing by 'ratio'
                 // --------------------------------------------------------------------------------
                 float x1_orig = x1_nopad / r;
                 float y1_orig = y1_nopad / r;
                 float x2_orig = x2_nopad / r;
                 float y2_orig = y2_nopad / r;
 
-                // Almacenar detección en coordenadas de la imagen ORIGINAL
+                // Store detection in the ORIGINAL image coordinates
                 detections.Add(new Detection(
                     x1_orig,
                     y1_orig,
                     x2_orig,
                     y2_orig,
-                    maxClsScore,
+                    clsScore,
                     maxClsIdx
                 ));
             }
 
-            if (nonMaxSuppression) 
+            if (nonMaxSuppression)
             {
                 var finalDetections = NonMaxSuppression(detections, nonMaxSuppressionThreshold);
                 return finalDetections;
             }
-            else 
+            else
             {
                 return detections;
             }
