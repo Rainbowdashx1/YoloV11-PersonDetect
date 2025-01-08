@@ -25,7 +25,7 @@ YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YO
 
    ```bash
    git clone https://github.com/Rainbowdashx1/YoloV11-PersonDetect
-   cd YOLOPerson
+   cd YoloV11-PersonDetect
    ```
 
 2. **Install dependencies**
