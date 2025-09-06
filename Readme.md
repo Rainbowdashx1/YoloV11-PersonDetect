@@ -17,7 +17,7 @@ YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YO
 - **Microsoft.ML.OnnxRuntime.Gpu**: v1.20.1
 - **OpenCvSharp4**
 - **CUDA Toolkit**: 12.6 ([download](https://developer.nvidia.com/cuda-12-6-0-download-archive?target_os=Windows\&target_arch=x86_64\&target_version=10\&target_type=exe_local))
-- **cuDNN**: 8.9.7 for CUDA 12.x ([download](https://developer.nvidia.com/rdp/cudnn-archive))
+- **cuDNN**: 9.13.0 for CUDA 12.x ([download](https://developer.nvidia.com/cudnn-downloads))
 
 ## Setup and Installation
 
