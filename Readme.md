@@ -31,8 +31,8 @@ YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YO
 2. **Install dependencies**
    Ensure you have installed:
    - .NET Core SDK 8.0.7
-   - NVIDIA CUDA Toolkit 12.6
-   - cuDNN 8.9.7 compatible with CUDA 12.x
+   - NVIDIA CUDA Toolkit 11.8
+   - cuDNN 8.9.7 compatible with CUDA 11.x
 
 3. **Build the project**
 
