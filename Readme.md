@@ -14,10 +14,10 @@ YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YO
 
 ### Software
 - **.NET Version**: .NET 8.0.7
-- **Microsoft.ML.OnnxRuntime.Gpu**: v1.20.1
+- **Microsoft.ML.OnnxRuntime.Gpu**: v1.18.1
 - **OpenCvSharp4**
-- **CUDA Toolkit**: 12.6 ([download](https://developer.nvidia.com/cuda-12-6-0-download-archive?target_os=Windows\&target_arch=x86_64\&target_version=10\&target_type=exe_local))
-- **cuDNN**: 9.13.0 for CUDA 12.x ([download](https://developer.nvidia.com/cudnn-downloads))
+- **CUDA Toolkit**: 11.8 ([download](https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_522.06_windows.exe))
+- **cuDNN**: 8.9.7 for CUDA 11.x ([download](https://developer.nvidia.com/cudnn-downloads))
 
 ## Setup and Installation
 
@@ -56,6 +56,48 @@ YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YO
 ---
 
 # Changelog
+
+## Version 1.0.2 - Two-Batch Processing 
+
+#### Added
+- **Multi-Model Support**
+  - Added `yolo11m2batch.onnx` - YOLOv11 Medium with 2-batch processing (two-batch mode)
+  - Added `yolo11n1batch.onnx` - YOLOv11 Nano optimized for single-batch processing
+  - Added `yolo11n2batch.onnx` - YOLOv11 Nano with 2-batch processing (two-batch mode)
+  
+- **Interactive Model Selection in `Program.cs`**
+  - Implemented a menu-driven interface allowing users to select between different YOLO models at runtime
+  - Options include single-batch and dual-batch (two-batch) processing modes for both Medium and Nano variants
+
+- **Batch Processing Methods in `Capture.cs`**
+  - `runWithModel1Batch()` - Optimized pipeline for single-batch models
+  - `runWithModel2Batch()` - Specialized pipeline for dual-batch models with overlapping region processing
+  - `ProcessFrameBatchOverLap()` - Handles frame splitting, batch inference, and detection merging
+  - `MergeOverlappingDetections()` - IoU-based duplicate detection elimination in overlapping regions
+
+- **Batch Output Processing in `Preprocessed.cs`**
+  - New method `PreproccessedOutputBatchOptimized()` for efficient handling of dual-batch inference results
+  - Optimized memory layout for processing two simultaneous inference outputs
+  - 
+#### Changed
+- **Refactored Video Capture Initialization in `Capture.cs`**
+  - Extracted `VideoCapture()` method to eliminate code duplication
+  - Now returns tuple `(VideoCapture, VideoWriter)` for reuse across different processing modes
+  - Added proper resource disposal with `try-finally` blocks in both batch methods
+
+- **Enhanced GPU Configuration in `SessionGpu.cs`**
+  - Added aggressive CUDA optimization parameters for improved inference performance
+  - Configured memory allocation strategies (`arena_extend_strategy`, `gpu_mem_limit`)
+  - Enabled CUDA Graphs (`enable_cuda_graph`) for reduced kernel launch overhead
+  - Optimized cuDNN convolution algorithm search (`cudnn_conv_algo_search: EXHAUSTIVE`)
+  - Fine-tuned thread management (`InterOpNumThreads`, `IntraOpNumThreads`) for batch processing
+
+#### Fixed
+- **Corrected CUDA and ONNX Runtime Version Documentation**
+  - Previous documentation listed incorrect versions for CUDA Toolkit and ONNX Runtime
+  - Updated to reflect actual tested versions:
+    - CUDA Toolkit: `11.x`
+    - ONNX Runtime GPU: `1.18.1`
 
 ## Version 1.0.1
 
