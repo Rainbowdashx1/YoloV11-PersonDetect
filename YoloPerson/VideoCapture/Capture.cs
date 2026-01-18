@@ -1,7 +1,5 @@
-﻿using Dia2Lib;
-using Microsoft.ML.OnnxRuntime.Tensors;
+﻿using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
-using System.Diagnostics;
 using YoloPerson.Nvidia;
 using YoloPerson.PreProcess;
 
@@ -14,6 +12,7 @@ namespace YoloPerson.VideoCapture
         readonly ProcessFrame process;
         readonly SessionGpu session;
         readonly Preprocessed prePro;
+        readonly FrameRender frameRender;
         public Capture(string videoPath, string videoProcessPath, string modelPath) 
         {
             this.videoPath = videoPath;
@@ -21,6 +20,7 @@ namespace YoloPerson.VideoCapture
             process = new ProcessFrame();
             session = new SessionGpu(modelPath);
             prePro = new Preprocessed();
+            frameRender = new FrameRender();
         }
         public void runWithModel1Batch()
         {
@@ -37,7 +37,7 @@ namespace YoloPerson.VideoCapture
                         break;
 
                     List<Detection> detections = ProcessFrame(frame);
-                    DrawDetections(frame, detections);
+                    frameRender.DrawDetections(frame, detections);
                     videoCapture.Item2.Write(frame);
                     Cv2.ImShow("Cuadro Actual", frame);
 
@@ -68,7 +68,7 @@ namespace YoloPerson.VideoCapture
                         break;
 
                     List<Detection> detections = ProcessFrameBatchOverLap(frame);
-                    DrawDetections(frame, detections);
+                    frameRender.DrawDetections(frame, detections);
                     videoCapture.Item2.Write(frame);
                     Cv2.ImShow("Cuadro Actual", frame);
                     if (Cv2.WaitKey(1) >= 0)
@@ -190,7 +190,7 @@ namespace YoloPerson.VideoCapture
 
                         if (rightCenter >= overlapStart && rightCenter <= overlapEnd)
                         {
-                            float iou = CalculateIoU(leftDet, rightDet);
+                            float iou = prePro.IoU(leftDet, rightDet);
 
                             if (iou > 0.5f)
                             {
@@ -227,78 +227,6 @@ namespace YoloPerson.VideoCapture
             }
 
             return result;
-        }
-
-        private float CalculateIoU(Detection a, Detection b)
-        {
-            float interX1 = Math.Max(a.X1, b.X1);
-            float interY1 = Math.Max(a.Y1, b.Y1);
-            float interX2 = Math.Min(a.X2, b.X2);
-            float interY2 = Math.Min(a.Y2, b.Y2);
-
-            float interW = Math.Max(0, interX2 - interX1);
-            float interH = Math.Max(0, interY2 - interY1);
-            float interArea = interW * interH;
-
-            if (interArea == 0)
-                return 0;
-
-            float areaA = (a.X2 - a.X1) * (a.Y2 - a.Y1);
-            float areaB = (b.X2 - b.X1) * (b.Y2 - b.Y1);
-
-            float unionArea = areaA + areaB - interArea;
-            return interArea / unionArea;
-        }
-        private void DrawDetections(Mat frame, List<Detection> detections)
-        {
-            DrawDetectionCounter(frame, detections.Count);
-
-            foreach (var detection in detections)
-            {
-                int x1 = (int)detection.X1;
-                int y1 = (int)detection.Y1;
-                int x2 = (int)detection.X2;
-                int y2 = (int)detection.Y2;
-
-                Cv2.Rectangle(frame, new OpenCvSharp.Point(x1, y1), new OpenCvSharp.Point(x2, y2), Scalar.Red, 2);
-
-                string label = $"Clase {detection.ClassId} ({detection.Score:P1})";
-                Cv2.PutText(frame, label, new OpenCvSharp.Point(x1, y1 - 10), HersheyFonts.HersheySimplex, 0.5, Scalar.Yellow, 1);
-            }
-        }
-        private void DrawDetectionCounter(Mat frame, int count)
-        {
-            string counterText = $"Detecciones: {count}";
-            int fontFace = (int)HersheyFonts.HersheySimplex;
-            double fontScale = 1.2;
-            int thickness = 2;
-
-            var textSize = Cv2.GetTextSize(counterText, (HersheyFonts)fontFace, fontScale, thickness, out int baseline);
-
-            int padding = 15;
-            int boxX = padding;
-            int boxY = padding;
-            int boxWidth = textSize.Width + padding * 2;
-            int boxHeight = textSize.Height + padding * 2;
-
-            using Mat overlay = frame.Clone();
-
-            Cv2.Rectangle(overlay,
-                new OpenCvSharp.Point(boxX, boxY),
-                new OpenCvSharp.Point(boxX + boxWidth, boxY + boxHeight),
-                new Scalar(0, 0, 0), // Negro
-                -1); // Relleno
-
-            double alpha = 0.6; 
-            Cv2.AddWeighted(overlay, alpha, frame, 1 - alpha, 0, frame);
-
-            Cv2.PutText(frame,
-                counterText,
-                new OpenCvSharp.Point(boxX + padding, boxY + textSize.Height + padding),
-                (HersheyFonts)fontFace,
-                fontScale,
-                new Scalar(0, 255, 0),
-                thickness);
         }
     }
 }

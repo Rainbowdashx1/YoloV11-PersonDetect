@@ -164,7 +164,7 @@ namespace YoloPerson.PreProcess
             }
             return final;
         }
-        private float IoU(Detection a, Detection b)
+        public float IoU(Detection a, Detection b)
         {
             float interX1 = Math.Max(a.X1, b.X1);
             float interY1 = Math.Max(a.Y1, b.Y1);
