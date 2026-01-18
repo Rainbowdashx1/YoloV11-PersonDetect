@@ -1,5 +1,7 @@
 ﻿
+
 using YoloPerson.VideoCapture;
+using YoloPerson.VideoSources;
 
 internal class Program
 {
@@ -10,11 +12,83 @@ internal class Program
     static bool batch = false;
 
     static private string modelPath;
-    static private string videoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Video", "people-walking.mp4");
-    static private string videoProcessPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Video", "people-walking_Processv3.mp4");
+    static private string videoPath;
+    static private string? videoProcessPath;
+    static private VideoSourceType? sourceType;
+
     private static void Main(string[] args)
     {
-        Console.WriteLine("=== YoloPerson Detection ===");
+        Console.WriteLine("=== YoloPerson Detection ===\n");
+        // Se descomprimira Ffmpeg
+        FFmpegHelper.Initialize();
+        
+        if (FFmpegHelper.IsAvailable)
+        {
+            Console.WriteLine("FFmpeg disponible\n");
+        }
+        else
+        {
+            Console.WriteLine("FFmpeg NO disponible (las opciones 3 y 5 no funcionarán)\n");
+        }
+
+        Console.WriteLine("=== Selecciona fuente de video ===");
+        Console.WriteLine("1. Archivo local (people-walking.mp4)");
+        Console.WriteLine($"2. Stream RTSP (con OpenCvSharp)");
+        Console.WriteLine($"3. Stream RTSP (con FFmpeg - baja latencia) {(FFmpegHelper.IsAvailable ? "" : "[NO DISPONIBLE]")}");
+        Console.WriteLine($"4. Stream MJPEG (con OpenCvSharp)");
+        Console.WriteLine($"5. Stream MJPEG (con FFmpeg - baja latencia) {(FFmpegHelper.IsAvailable ? "" : "[NO DISPONIBLE]")}");
+        Console.Write("\nOpción: ");
+
+        string? sourceOption = Console.ReadLine();
+
+        switch (sourceOption)
+        {
+            case "1":
+                videoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Video", "people-walking.mp4");
+                videoProcessPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Video", "people-walking_Processv3.mp4");
+                sourceType = VideoSourceType.File;
+                break;
+            case "2":
+                Console.Write("Ingresa URL RTSP (ej: rtsp://192.168.1.100:554/stream): ");
+                videoPath = Console.ReadLine() ?? "";
+                videoProcessPath = null;
+                sourceType = VideoSourceType.RtspOpenCV;
+                break;
+            case "3":
+                if (!FFmpegHelper.IsAvailable)
+                {
+                    Console.WriteLine("\nFFmpeg no está disponible. Usa la opción 2 en su lugar.");
+                    return;
+                }
+                Console.Write("Ingresa URL RTSP (ej: rtsp://192.168.1.100:554/stream): ");
+                videoPath = Console.ReadLine() ?? "";
+                videoProcessPath = null;
+                sourceType = VideoSourceType.RtspFFmpeg;
+                break;
+            case "4":
+                Console.Write("Ingresa URL MJPEG (ej: http://192.168.1.100/video): ");
+                videoPath = Console.ReadLine() ?? "";
+                videoProcessPath = null;
+                sourceType = VideoSourceType.MjpegOpenCV;
+                break;
+            case "5":
+                if (!FFmpegHelper.IsAvailable)
+                {
+                    Console.WriteLine("\nFFmpeg no está disponible. Usa la opción 4 en su lugar.");
+                    return;
+                }
+                Console.Write("Ingresa URL MJPEG (ej: http://192.168.1.100/video): ");
+                videoPath = Console.ReadLine() ?? "";
+                videoProcessPath = null;
+                sourceType = VideoSourceType.MjpegFFmpeg;
+                break;
+            default:
+                Console.WriteLine("Opción no válida");
+                return;
+        }
+
+        Console.WriteLine($"\n=== Fuente seleccionada: {VideoSourceFactory.GetSourceDescription(sourceType.Value)} ===");
+        Console.WriteLine("\n=== Selecciona modelo ===");
         Console.WriteLine("1. Procesar usando yolo11m 1 batch");
         Console.WriteLine("2. Procesar usando yolo11m 2 batch - two batch");
         Console.WriteLine("3. Procesar usando yolo11n 1 batch");
@@ -43,12 +117,12 @@ internal class Program
                 return;
             default:
                 Console.WriteLine("Opción no válida");
-                break;
+                return;
         }
 
-        Capture Cap = new Capture(videoPath,videoProcessPath,modelPath);
+        Capture Cap = new Capture(videoPath, videoProcessPath, modelPath, sourceType);
 
-        if(batch)
+        if (batch)
             Cap.runWithModel2Batch();
         else
             Cap.runWithModel1Batch();
@@ -73,6 +147,6 @@ internal class Program
     {
         modelPath = yolo11n2batch;
         batch = true;
-        Console.WriteLine("Usando modelo yolo11n 2 batch - two eye");
+        Console.WriteLine("Usando modelo yolo11n 2 batch");
     }
 }

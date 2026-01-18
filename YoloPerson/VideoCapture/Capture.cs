@@ -2,21 +2,25 @@
 using OpenCvSharp;
 using YoloPerson.Nvidia;
 using YoloPerson.PreProcess;
+using YoloPerson.VideoSources;
 
 namespace YoloPerson.VideoCapture
 {
     internal class Capture
     {
-        readonly string videoPath;
-        readonly string videoProcessPath;
-        readonly ProcessFrame process;
-        readonly SessionGpu session;
-        readonly Preprocessed prePro;
-        readonly FrameRender frameRender;
-        public Capture(string videoPath, string videoProcessPath, string modelPath) 
+        private readonly string videoPath;
+        private readonly string? videoProcessPath;
+        private readonly ProcessFrame process;
+        private readonly SessionGpu session;
+        private readonly Preprocessed prePro;
+        private readonly FrameRender frameRender;
+        private readonly VideoSourceType? preferredSourceType;
+
+        public Capture(string videoPath, string? videoProcessPath, string modelPath, VideoSourceType? preferredSourceType = null) 
         {
             this.videoPath = videoPath;
             this.videoProcessPath = videoProcessPath;
+            this.preferredSourceType = preferredSourceType;
             process = new ProcessFrame();
             session = new SessionGpu(modelPath);
             prePro = new Preprocessed();
@@ -24,91 +28,102 @@ namespace YoloPerson.VideoCapture
         }
         public void runWithModel1Batch()
         {
-            var videoCapture = VideoCapture(videoPath);
+            using var videoSource = VideoSourceFactory.Create(videoPath, preferredSourceType, lowLatency: true);
+            using var videoWriter = CreateVideoWriter(videoSource);
+
             try
             {
                 Mat frame = new Mat();
                 int currentFrame = 0;
+                int skippedFrames = 0;
 
-                while (videoCapture.Item1.Read(frame))
+                while (videoSource.Read(frame))
                 {
                     currentFrame++;
                     if (frame.Empty())
-                        break;
+                    {
+                        skippedFrames++;
+                        continue;
+                    }
 
                     List<Detection> detections = ProcessFrame(frame);
                     frameRender.DrawDetections(frame, detections);
-                    videoCapture.Item2.Write(frame);
+                    
+                    videoWriter?.Write(frame);
                     Cv2.ImShow("Cuadro Actual", frame);
 
                     if (Cv2.WaitKey(1) >= 0)
                         break;
                 }
 
+                Console.WriteLine($"Frames procesados: {currentFrame}, Frames saltados: {skippedFrames}");
                 Cv2.DestroyAllWindows();
             }
             finally
             {
-                videoCapture.Item1?.Dispose();
-                videoCapture.Item2?.Dispose();
+                videoWriter?.Dispose();
             }
         }
         public void runWithModel2Batch()
         {
-            var videoCapture = VideoCapture(videoPath);
+            using var videoSource = VideoSourceFactory.Create(videoPath, preferredSourceType, lowLatency: true);
+            using var videoWriter = CreateVideoWriter(videoSource);
+
             try
             {
                 Mat frame = new Mat();
                 int currentFrame = 0;
+                int skippedFrames = 0;
 
-                while (videoCapture.Item1.Read(frame))
+                while (videoSource.Read(frame))
                 {
                     currentFrame++;
                     if (frame.Empty())
-                        break;
+                    {
+                        skippedFrames++;
+                        continue;
+                    }
 
                     List<Detection> detections = ProcessFrameBatchOverLap(frame);
                     frameRender.DrawDetections(frame, detections);
-                    videoCapture.Item2.Write(frame);
+                    
+                    videoWriter?.Write(frame);
                     Cv2.ImShow("Cuadro Actual", frame);
+                    
                     if (Cv2.WaitKey(1) >= 0)
                         break;
                 }
+
+                Console.WriteLine($"Frames procesados: {currentFrame}, Frames saltados: {skippedFrames}");
                 Cv2.DestroyAllWindows();
             }
             finally
             {
-                videoCapture.Item1?.Dispose();
-                videoCapture.Item2?.Dispose();
+                videoWriter?.Dispose();
             }
         }
-        private (OpenCvSharp.VideoCapture, OpenCvSharp.VideoWriter) VideoCapture(string videoPath)
+        private OpenCvSharp.VideoWriter? CreateVideoWriter(IVideoSource source)
         {
-            var videoCapture = new OpenCvSharp.VideoCapture(videoPath);
-            if (!videoCapture.IsOpened())
+            if (videoProcessPath == null)
             {
-                Console.WriteLine("No se pudo abrir el video.");
-                throw new Exception("No se pudo abrir el video.");
+                Console.WriteLine("No se guardará el video procesado (modo visualización)");
+                return null;
             }
-
-            int fps = (int)videoCapture.Fps;
-            int frameWidth = (int)videoCapture.FrameWidth;
-            int frameHeight = (int)videoCapture.FrameHeight;
 
             var videoWriter = new OpenCvSharp.VideoWriter(
                 videoProcessPath,
                 FourCC.XVID,
-                fps,
-                new OpenCvSharp.Size(frameWidth, frameHeight)
+                source.Fps,
+                new OpenCvSharp.Size(source.Width, source.Height)
             );
 
             if (!videoWriter.IsOpened())
             {
-                Console.WriteLine("No se pudo abrir el escritor de video.");
                 throw new Exception("No se pudo abrir el escritor de video.");
             }
 
-            return (videoCapture, videoWriter);
+            Console.WriteLine($"Video de salida configurado: {Path.GetFileName(videoProcessPath)}");
+            return videoWriter;
         }
         private List<Detection> ProcessFrame(Mat frame)
         {
