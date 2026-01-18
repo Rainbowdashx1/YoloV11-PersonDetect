@@ -6,6 +6,7 @@ namespace YoloPerson.VideoSources
     internal static class FFmpegHelper
     {
         private static string? ffmpegPath;
+        private static string? ffprobePath;
         private static bool isInitialized = false;
 
         public static string FFmpegPath
@@ -20,12 +21,35 @@ namespace YoloPerson.VideoSources
                 return ffmpegPath;
             }
         }
+
+        public static string FFprobePath
+        {
+            get
+            {
+                EnsureInitialized();
+                if (ffprobePath == null)
+                {
+                    throw new FileNotFoundException("Error en ffprobePath");
+                }
+                return ffprobePath;
+            }
+        }
+
         public static bool IsAvailable
         {
             get
             {
                 EnsureInitialized();
                 return ffmpegPath != null;
+            }
+        }
+
+        public static bool IsFFprobeAvailable
+        {
+            get
+            {
+                EnsureInitialized();
+                return ffprobePath != null;
             }
         }
 
@@ -53,18 +77,29 @@ namespace YoloPerson.VideoSources
                 ffmpegPath = customFFmpegPath;
             }
 
+            if (!string.IsNullOrEmpty(customFFprobePath) && File.Exists(customFFprobePath))
+            {
+                ffprobePath = customFFprobePath;
+            }
+
             // PASO 3: Buscar en carpeta de ejecución (donde se extrajo el .rar)
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            
             if (ffmpegPath == null)
             {
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                
-                if (ffmpegPath == null)
+                string localFFmpeg = Path.Combine(baseDir, "ffmpeg.exe");
+                if (File.Exists(localFFmpeg))
                 {
-                    string localFFmpeg = Path.Combine(baseDir, "ffmpeg.exe");
-                    if (File.Exists(localFFmpeg))
-                    {
-                        ffmpegPath = localFFmpeg;
-                    }
+                    ffmpegPath = localFFmpeg;
+                }
+            }
+
+            if (ffprobePath == null)
+            {
+                string localFFprobe = Path.Combine(baseDir, "ffprobe.exe");
+                if (File.Exists(localFFprobe))
+                {
+                    ffprobePath = localFFprobe;
                 }
             }
 
@@ -78,15 +113,34 @@ namespace YoloPerson.VideoSources
                 }
             }
 
+            if (ffprobePath == null)
+            {
+                ffprobePath = FindExecutableInPath("ffprobe");
+                if (ffprobePath != null)
+                {
+                    Console.WriteLine($"[FFmpegHelper] FFprobe encontrado (PATH): {ffprobePath}");
+                }
+            }
+
             // Verificar versiones
             if (ffmpegPath != null)
             {
                 VerifyFFmpegVersion(ffmpegPath);
             }
 
+            if (ffprobePath != null)
+            {
+                VerifyFFmpegVersion(ffprobePath);
+            }
+
             if (ffmpegPath == null)
             {
                 Console.WriteLine("[FFmpegHelper] FFmpeg no está disponible");
+            }
+
+            if (ffprobePath == null)
+            {
+                Console.WriteLine("[FFmpegHelper] FFprobe no está disponible");
             }
         }
 
@@ -190,6 +244,7 @@ namespace YoloPerson.VideoSources
             FFmpegInstaller.CleanupExtractedFiles();
             isInitialized = false;
             ffmpegPath = null;
+            ffprobePath = null;
             Initialize();
         }
     }

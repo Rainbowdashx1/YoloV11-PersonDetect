@@ -8,8 +8,9 @@ namespace YoloPerson.VideoSources
         private static readonly string BaseDirectory = AppDomain.CurrentDomain.BaseDirectory;
         private static readonly string FFmpegSubfolder = Path.Combine(BaseDirectory, "FFmpeg");
         private static readonly string FFmpegRarPath = Path.Combine(FFmpegSubfolder, "ffmpeg.rar");
+        private static readonly string FFprobeRarPath = Path.Combine(FFmpegSubfolder, "ffprobe.rar");
         
-        private static readonly string[] RequiredFiles = { "ffmpeg.exe" };
+        private static readonly string[] RequiredFiles = { "ffmpeg.exe", "ffprobe.exe" };
 
         public static bool AreFilesExtracted()
         {
@@ -26,12 +27,35 @@ namespace YoloPerson.VideoSources
                     return true;
                 }
 
-                // Verificar si existe el archivo .rar
-                if (!File.Exists(FFmpegRarPath))
+                bool ffmpegExtracted = false;
+                bool ffprobeExtracted = false;
+
+                // Extraer ffmpeg.rar
+                if (File.Exists(FFmpegRarPath))
                 {
-                    return false;
+                    ffmpegExtracted = ExtractRarFile(FFmpegRarPath, "ffmpeg.exe");
                 }
 
+                // Extraer ffprobe.rar
+                if (File.Exists(FFprobeRarPath))
+                {
+                    ffprobeExtracted = ExtractRarFile(FFprobeRarPath, "ffprobe.exe");
+                }
+
+                // Retornar true si se extrajeron ambos o al menos uno
+                return ffmpegExtracted || ffprobeExtracted;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FFmpegInstaller] Error: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static bool ExtractRarFile(string rarPath, string targetFile)
+        {
+            try
+            {
                 // Crear directorio temporal
                 string tempExtractPath = Path.Combine(Path.GetTempPath(), $"ffmpeg_extract_{Guid.NewGuid()}");
                 Directory.CreateDirectory(tempExtractPath);
@@ -39,11 +63,8 @@ namespace YoloPerson.VideoSources
                 try
                 {
                     // Extraer el archivo .rar
-                    using (var archive = ArchiveFactory.Open(FFmpegRarPath))
+                    using (var archive = ArchiveFactory.Open(rarPath))
                     {
-                        int totalFiles = archive.Entries.Count();
-                        int extractedFiles = 0;
-
                         foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
                         {
                             entry.WriteToDirectory(tempExtractPath, new ExtractionOptions()
@@ -51,26 +72,17 @@ namespace YoloPerson.VideoSources
                                 ExtractFullPath = true,
                                 Overwrite = true
                             });
-
-                            extractedFiles++;
                         }
                     }
 
-                    // Buscar y copiar ffmpeg.exe y ffprobe.exe a la raíz
-                    bool foundAll = true;
-                    foreach (string requiredFile in RequiredFiles)
+                    // Buscar y copiar el archivo objetivo a la raíz
+                    string? foundPath = FindFile(tempExtractPath, targetFile);
+                    
+                    if (foundPath != null)
                     {
-                        string? foundPath = FindFile(tempExtractPath, requiredFile);
-                        
-                        if (foundPath != null)
-                        {
-                            string destinationPath = Path.Combine(BaseDirectory, requiredFile);
-                            File.Copy(foundPath, destinationPath, true);
-                        }
-                        else
-                        {
-                            foundAll = false;
-                        }
+                        string destinationPath = Path.Combine(BaseDirectory, targetFile);
+                        File.Copy(foundPath, destinationPath, true);
+                        Console.WriteLine($"[FFmpegInstaller] {targetFile} extraído exitosamente");
                     }
 
                     // Limpiar directorio temporal
@@ -83,18 +95,11 @@ namespace YoloPerson.VideoSources
                         // No crítico si falla la limpieza
                     }
 
-                    if (foundAll)
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
+                    return foundPath != null;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[FFmpegInstaller] Error durante la extracción: {ex.Message}");
+                    Console.WriteLine($"[FFmpegInstaller] Error durante la extracción de {targetFile}: {ex.Message}");
                     // Limpiar en caso de error
                     try
                     {
@@ -110,7 +115,7 @@ namespace YoloPerson.VideoSources
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[FFmpegInstaller] Error: {ex.Message}");
+                Console.WriteLine($"[FFmpegInstaller] Error extrayendo {targetFile}: {ex.Message}");
                 return false;
             }
         }

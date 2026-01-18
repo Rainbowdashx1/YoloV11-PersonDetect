@@ -21,6 +21,9 @@
     <None Update="FFmpeg\ffmpeg.rar">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FFmpeg\ffprobe.rar">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="ModelOnnx\yolo11m.onnx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

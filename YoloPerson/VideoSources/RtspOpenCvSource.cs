@@ -7,6 +7,7 @@ namespace YoloPerson.VideoSources
         private readonly OpenCvSharp.VideoCapture capture;
         private readonly string url;
         private readonly bool isRtsp;
+        private readonly bool lowLatencyMode;
         private int consecutiveFailures = 0;
         private const int MaxConsecutiveFailures = 30;
 
@@ -20,6 +21,7 @@ namespace YoloPerson.VideoSources
         {
             this.url = url;
             this.isRtsp = url.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase);
+            this.lowLatencyMode = lowLatency;
 
             Console.WriteLine($"[{SourceType}] Conectando a: {url}");
 
@@ -44,7 +46,10 @@ namespace YoloPerson.VideoSources
                 capture.Set(VideoCaptureProperties.BufferSize, 3);
             }
 
-            capture.Set(VideoCaptureProperties.FourCC, FourCC.H264);
+            if (isRtsp)
+            {
+                capture.Set(VideoCaptureProperties.FourCC, FourCC.H264);
+            }
 
             Console.WriteLine($"[{SourceType}] Conectado: {Width}x{Height} @ {Fps:F2} FPS");
         }
@@ -54,6 +59,11 @@ namespace YoloPerson.VideoSources
             if (!capture.IsOpened())
             {
                 return false;
+            }
+
+            if (lowLatencyMode)
+            {
+                capture.Grab();
             }
 
             bool success = capture.Read(frame);
