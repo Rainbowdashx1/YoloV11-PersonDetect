@@ -2,7 +2,7 @@
 
 namespace YoloPerson.VideoCapture
 {
-    public class ProcessFrame
+    internal class ProcessFrame
     {
         public Mat Letterbox(Mat src, int dstW, int dstH, out float r, out int padX, out int padY)
         {

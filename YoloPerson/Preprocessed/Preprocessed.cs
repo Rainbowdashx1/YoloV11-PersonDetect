@@ -74,6 +74,79 @@ namespace YoloPerson.PreProcess
                 return detections;
             }
         }
+        public (List<Detection> leftDetections, List<Detection> rightDetections) PreproccessedOutputBatchOptimized(
+        Tensor<float>? output0,
+        int padX1, int padY1, float r1,
+        int padX2, int padY2, float r2,
+        bool nonMaxSuppression = true,
+        float nonMaxSuppressionThreshold = 0.45f,
+        float thresHold = 0.25f)
+        {
+            if (output0 is null)
+                return (new List<Detection>(), new List<Detection>());
+
+            var dims = output0.Dimensions;
+            int numPreds = dims[2];
+            int maxClsIdx = 4;
+
+            var detectionsLeft = new List<Detection>(numPreds / 10);
+            var detectionsRight = new List<Detection>(numPreds / 10);
+
+            // Pre-calcular valores constantes
+            float invR1 = 1f / r1;
+            float invR2 = 1f / r2;
+
+            // Procesar ambas imágenes en un solo loop
+            for (int i = 0; i < numPreds; i++)
+            {
+                // Procesar imagen izquierda (batch 0)
+                float clsScore0 = output0[0, 4, i];
+                if (clsScore0 >= thresHold)
+                {
+                    float xCenter = output0[0, 0, i];
+                    float yCenter = output0[0, 1, i];
+                    float halfW = output0[0, 2, i] * 0.5f;
+                    float halfH = output0[0, 3, i] * 0.5f;
+
+                    detectionsLeft.Add(new Detection(
+                        (xCenter - halfW - padX1) * invR1,
+                        (yCenter - halfH - padY1) * invR1,
+                        (xCenter + halfW - padX1) * invR1,
+                        (yCenter + halfH - padY1) * invR1,
+                        clsScore0,
+                        maxClsIdx
+                    ));
+                }
+
+                // Procesar imagen derecha (batch 1)
+                float clsScore1 = output0[1, 4, i];
+                if (clsScore1 >= thresHold)
+                {
+                    float xCenter = output0[1, 0, i];
+                    float yCenter = output0[1, 1, i];
+                    float halfW = output0[1, 2, i] * 0.5f;
+                    float halfH = output0[1, 3, i] * 0.5f;
+
+                    detectionsRight.Add(new Detection(
+                        (xCenter - halfW - padX2) * invR2,
+                        (yCenter - halfH - padY2) * invR2,
+                        (xCenter + halfW - padX2) * invR2,
+                        (yCenter + halfH - padY2) * invR2,
+                        clsScore1,
+                        maxClsIdx
+                    ));
+                }
+            }
+
+            if (nonMaxSuppression)
+            {
+                detectionsLeft = NonMaxSuppression(detectionsLeft, nonMaxSuppressionThreshold);
+                detectionsRight = NonMaxSuppression(detectionsRight, nonMaxSuppressionThreshold);
+            }
+
+            return (detectionsLeft, detectionsRight);
+        }
+       
         private List<Detection> NonMaxSuppression(List<Detection> detections, float iouThreshold)
         {
             var sorted = new List<Detection>(detections);
@@ -91,7 +164,7 @@ namespace YoloPerson.PreProcess
             }
             return final;
         }
-        private float IoU(Detection a, Detection b)
+        public float IoU(Detection a, Detection b)
         {
             float interX1 = Math.Max(a.X1, b.X1);
             float interY1 = Math.Max(a.Y1, b.Y1);
