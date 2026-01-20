@@ -1,7 +1,11 @@
 ﻿using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
+using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 
 
 namespace YoloPerson.Nvidia
@@ -52,7 +56,7 @@ namespace YoloPerson.Nvidia
         }
         public Tensor<float>? SessionRun(Mat matframeLetterbox) 
         {
-            DenseTensor<float> inputTensor = MatToTensorParallel(matframeLetterbox);
+            DenseTensor<float> inputTensor = MatToTensorHybrid(matframeLetterbox);
 
             var inputs = new List<NamedOnnxValue>
             {
@@ -65,7 +69,7 @@ namespace YoloPerson.Nvidia
         }
         public Tensor<float>? SessionRunBatch(Mat mat1, Mat mat2)
         {
-            DenseTensor<float> inputTensor = MatToTensorParallelBatch(mat1, mat2);
+            DenseTensor<float> inputTensor = MatToTensorHybridBatch(mat1, mat2);
 
             var inputs = new List<NamedOnnxValue>
             {
@@ -210,6 +214,501 @@ namespace YoloPerson.Nvidia
             });
 
             return new DenseTensor<float>(tensorData, new[] { 2, channels, height, width }); ;
+        }
+
+        // Constante pre-calculada para evitar división en runtime
+        private const float InverseNormalization = 1.0f / 255.0f;
+
+        // ArrayPool compartido para reutilizar buffers y evitar allocations
+        private static readonly ArrayPool<byte> BytePool = ArrayPool<byte>.Shared;
+        private static readonly ArrayPool<float> FloatPool = ArrayPool<float>.Shared;
+
+        /// <summary>
+        /// Versión ultra-optimizada usando SIMD (AVX2), ArrayPool y acceso directo a memoria.
+        /// Procesa 8 floats en paralelo usando Vector256.
+        /// </summary>
+        public DenseTensor<float> MatToTensorUltraFast(Mat mat)
+        {
+            // Conversión BGR a RGB
+            if (mat.Channels() == 3)
+            {
+                Cv2.CvtColor(mat, mat, ColorConversionCodes.BGR2RGB);
+            }
+            else if (mat.Channels() == 4)
+            {
+                Cv2.CvtColor(mat, mat, ColorConversionCodes.BGRA2RGB);
+            }
+
+            int height = mat.Rows;
+            int width = mat.Cols;
+            const int channels = 3;
+            int stride = width * channels;
+            int pixelCount = height * width;
+            int totalSize = channels * pixelCount;
+
+            if (mat.Type() != MatType.CV_8UC3)
+            {
+                throw new ArgumentException($"Tipo de Mat no soportado: {mat.Type()}");
+            }
+
+            // Usar ArrayPool para evitar allocations - mejor para GC
+            byte[] matData = BytePool.Rent(height * stride);
+            float[] tensorData = new float[totalSize]; // Este debe ser exacto para DenseTensor
+
+            try
+            {
+                // Copiar datos de imagen a buffer manejado
+                Marshal.Copy(mat.Data, matData, 0, height * stride);
+
+                // Procesar usando SIMD si está disponible
+                if (Avx2.IsSupported)
+                {
+                    ProcessWithAvx2(matData, tensorData, height, width, stride);
+                }
+                else if (Sse2.IsSupported)
+                {
+                    ProcessWithSse2(matData, tensorData, height, width, stride);
+                }
+                else
+                {
+                    ProcessScalarOptimized(matData, tensorData, height, width, stride);
+                }
+            }
+            finally
+            {
+                BytePool.Return(matData);
+            }
+
+            return new DenseTensor<float>(tensorData, new[] { 1, channels, height, width });
+        }
+
+        /// <summary>
+        /// Versión con unsafe pointers para máximo rendimiento - evita bounds checking.
+        /// </summary>
+        public unsafe DenseTensor<float> MatToTensorUnsafe(Mat mat)
+        {
+            if (mat.Channels() == 3)
+            {
+                Cv2.CvtColor(mat, mat, ColorConversionCodes.BGR2RGB);
+            }
+            else if (mat.Channels() == 4)
+            {
+                Cv2.CvtColor(mat, mat, ColorConversionCodes.BGRA2RGB);
+            }
+
+            int height = mat.Rows;
+            int width = mat.Cols;
+            const int channels = 3;
+            int stride = width * channels;
+            int planeSize = height * width;
+
+            if (mat.Type() != MatType.CV_8UC3)
+            {
+                throw new ArgumentException($"Tipo de Mat no soportado: {mat.Type()}");
+            }
+
+            float[] tensorData = new float[channels * planeSize];
+
+            byte* srcPtr = (byte*)mat.Data.ToPointer();
+
+            fixed (float* dstPtr = tensorData)
+            {
+                float* rPlane = dstPtr;
+                float* gPlane = dstPtr + planeSize;
+                float* bPlane = dstPtr + 2 * planeSize;
+
+                Parallel.For(0, height, h =>
+                {
+                    byte* rowPtr = srcPtr + h * stride;
+                    int rowOffset = h * width;
+
+                    for (int w = 0; w < width; w++)
+                    {
+                        int pixelIdx = w * 3;
+                        int dstIdx = rowOffset + w;
+
+                        rPlane[dstIdx] = rowPtr[pixelIdx] * InverseNormalization;
+                        gPlane[dstIdx] = rowPtr[pixelIdx + 1] * InverseNormalization;
+                        bPlane[dstIdx] = rowPtr[pixelIdx + 2] * InverseNormalization;
+                    }
+                });
+            }
+
+            return new DenseTensor<float>(tensorData, new[] { 1, channels, height, width });
+        }
+
+        /// <summary>
+        /// Versión híbrida: SIMD + Unsafe + Parallel + ArrayPool
+        /// La más optimizada de todas.
+        /// </summary>
+        public unsafe DenseTensor<float> MatToTensorHybrid(Mat mat)
+        {
+            if (mat.Channels() == 3)
+            {
+                Cv2.CvtColor(mat, mat, ColorConversionCodes.BGR2RGB);
+            }
+            else if (mat.Channels() == 4)
+            {
+                Cv2.CvtColor(mat, mat, ColorConversionCodes.BGRA2RGB);
+            }
+
+            int height = mat.Rows;
+            int width = mat.Cols;
+            const int channels = 3;
+            int planeSize = height * width;
+
+            if (mat.Type() != MatType.CV_8UC3)
+            {
+                throw new ArgumentException($"Tipo de Mat no soportado: {mat.Type()}");
+            }
+
+            float[] tensorData = new float[channels * planeSize];
+            byte* srcPtr = (byte*)mat.Data.ToPointer();
+            int stride = (int)mat.Step();
+
+            fixed (float* dstPtr = tensorData)
+            {
+                float* rPlane = dstPtr;
+                float* gPlane = dstPtr + planeSize;
+                float* bPlane = dstPtr + 2 * planeSize;
+
+                if (Avx2.IsSupported && width >= 8)
+                {
+                    Vector256<float> normFactor = Vector256.Create(InverseNormalization);
+
+                    Parallel.For(0, height, h =>
+                    {
+                        byte* rowPtr = srcPtr + h * stride;
+                        int rowOffset = h * width;
+                        int w = 0;
+
+                        // Procesar 8 píxeles a la vez con AVX2
+                        int simdWidth = width - (width % 8);
+                        for (; w < simdWidth; w += 8)
+                        {
+                            int pixelBase = w * 3;
+                            int dstBase = rowOffset + w;
+
+                            // Cargar y convertir 8 valores R
+                            Vector256<int> rInt = Vector256.Create(
+                                rowPtr[pixelBase], rowPtr[pixelBase + 3], rowPtr[pixelBase + 6], rowPtr[pixelBase + 9],
+                                rowPtr[pixelBase + 12], rowPtr[pixelBase + 15], rowPtr[pixelBase + 18], rowPtr[pixelBase + 21]);
+                            Vector256<float> rFloat = Avx.Multiply(Avx.ConvertToVector256Single(rInt), normFactor);
+
+                            // Cargar y convertir 8 valores G
+                            Vector256<int> gInt = Vector256.Create(
+                                rowPtr[pixelBase + 1], rowPtr[pixelBase + 4], rowPtr[pixelBase + 7], rowPtr[pixelBase + 10],
+                                rowPtr[pixelBase + 13], rowPtr[pixelBase + 16], rowPtr[pixelBase + 19], rowPtr[pixelBase + 22]);
+                            Vector256<float> gFloat = Avx.Multiply(Avx.ConvertToVector256Single(gInt), normFactor);
+
+                            // Cargar y convertir 8 valores B
+                            Vector256<int> bInt = Vector256.Create(
+                                rowPtr[pixelBase + 2], rowPtr[pixelBase + 5], rowPtr[pixelBase + 8], rowPtr[pixelBase + 11],
+                                rowPtr[pixelBase + 14], rowPtr[pixelBase + 17], rowPtr[pixelBase + 20], rowPtr[pixelBase + 23]);
+                            Vector256<float> bFloat = Avx.Multiply(Avx.ConvertToVector256Single(bInt), normFactor);
+
+                            // Almacenar resultados
+                            Avx.Store(rPlane + dstBase, rFloat);
+                            Avx.Store(gPlane + dstBase, gFloat);
+                            Avx.Store(bPlane + dstBase, bFloat);
+                        }
+
+                        // Procesar píxeles restantes de forma escalar
+                        for (; w < width; w++)
+                        {
+                            int pixelIdx = w * 3;
+                            int dstIdx = rowOffset + w;
+                            rPlane[dstIdx] = rowPtr[pixelIdx] * InverseNormalization;
+                            gPlane[dstIdx] = rowPtr[pixelIdx + 1] * InverseNormalization;
+                            bPlane[dstIdx] = rowPtr[pixelIdx + 2] * InverseNormalization;
+                        }
+                    });
+                }
+                else
+                {
+                    // Fallback sin SIMD
+                    Parallel.For(0, height, h =>
+                    {
+                        byte* rowPtr = srcPtr + h * stride;
+                        int rowOffset = h * width;
+
+                        for (int w = 0; w < width; w++)
+                        {
+                            int pixelIdx = w * 3;
+                            int dstIdx = rowOffset + w;
+                            rPlane[dstIdx] = rowPtr[pixelIdx] * InverseNormalization;
+                            gPlane[dstIdx] = rowPtr[pixelIdx + 1] * InverseNormalization;
+                            bPlane[dstIdx] = rowPtr[pixelIdx + 2] * InverseNormalization;
+                        }
+                    });
+                }
+            }
+
+            return new DenseTensor<float>(tensorData, new[] { 1, channels, height, width });
+        }
+
+        /// <summary>
+        /// Versión híbrida batch: SIMD + Unsafe + Parallel para procesar 2 imágenes.
+        /// Combina las optimizaciones de MatToTensorHybrid con procesamiento batch.
+        /// </summary>
+        public unsafe DenseTensor<float> MatToTensorHybridBatch(Mat mat1, Mat mat2)
+        {
+            if (mat1.Rows != mat2.Rows || mat1.Cols != mat2.Cols)
+            {
+                throw new ArgumentException("Ambas imágenes deben tener las mismas dimensiones.");
+            }
+
+            // Conversión a RGB en paralelo
+            Parallel.Invoke(
+                () => ConvertToRgbInPlace(mat1),
+                () => ConvertToRgbInPlace(mat2)
+            );
+
+            int height = mat1.Rows;
+            int width = mat1.Cols;
+            const int channels = 3;
+            int planeSize = height * width;
+            int singleImageSize = channels * planeSize;
+
+            if (mat1.Type() != MatType.CV_8UC3 || mat2.Type() != MatType.CV_8UC3)
+            {
+                throw new ArgumentException("Tipo de Mat no soportado. Se requiere CV_8UC3.");
+            }
+
+            float[] tensorData = new float[2 * singleImageSize];
+
+            byte* srcPtr1 = (byte*)mat1.Data.ToPointer();
+            byte* srcPtr2 = (byte*)mat2.Data.ToPointer();
+            int stride1 = (int)mat1.Step();
+            int stride2 = (int)mat2.Step();
+
+            // Usar GCHandle para pinear el array y poder usarlo en Parallel.Invoke
+            GCHandle handle = GCHandle.Alloc(tensorData, GCHandleType.Pinned);
+            try
+            {
+                float* dstPtr = (float*)handle.AddrOfPinnedObject().ToPointer();
+
+                // Procesar ambas imágenes en paralelo
+                Parallel.Invoke(
+                    () => ProcessImageHybridInternal(srcPtr1, stride1, dstPtr, 0, height, width, planeSize),
+                    () => ProcessImageHybridInternal(srcPtr2, stride2, dstPtr, singleImageSize, height, width, planeSize)
+                );
+            }
+            finally
+            {
+                handle.Free();
+            }
+
+            return new DenseTensor<float>(tensorData, new[] { 2, channels, height, width });
+        }
+
+        /// <summary>
+        /// Método interno que aplica las optimizaciones híbridas (SIMD + Parallel) a una imagen.
+        /// </summary>
+        private unsafe void ProcessImageHybridInternal(byte* srcPtr, int stride, float* dstPtr, int offset, int height, int width, int planeSize)
+        {
+            float* rPlane = dstPtr + offset;
+            float* gPlane = dstPtr + offset + planeSize;
+            float* bPlane = dstPtr + offset + 2 * planeSize;
+
+            if (Avx2.IsSupported && width >= 8)
+            {
+                Vector256<float> normFactor = Vector256.Create(InverseNormalization);
+
+                Parallel.For(0, height, h =>
+                {
+                    byte* rowPtr = srcPtr + h * stride;
+                    int rowOffset = h * width;
+                    int w = 0;
+
+                    // Procesar 8 píxeles a la vez con AVX2
+                    int simdWidth = width - (width % 8);
+                    for (; w < simdWidth; w += 8)
+                    {
+                        int pixelBase = w * 3;
+                        int dstBase = rowOffset + w;
+
+                        // Cargar y convertir 8 valores R
+                        Vector256<int> rInt = Vector256.Create(
+                            rowPtr[pixelBase], rowPtr[pixelBase + 3], rowPtr[pixelBase + 6], rowPtr[pixelBase + 9],
+                            rowPtr[pixelBase + 12], rowPtr[pixelBase + 15], rowPtr[pixelBase + 18], rowPtr[pixelBase + 21]);
+                        Vector256<float> rFloat = Avx.Multiply(Avx.ConvertToVector256Single(rInt), normFactor);
+
+                        // Cargar y convertir 8 valores G
+                        Vector256<int> gInt = Vector256.Create(
+                            rowPtr[pixelBase + 1], rowPtr[pixelBase + 4], rowPtr[pixelBase + 7], rowPtr[pixelBase + 10],
+                            rowPtr[pixelBase + 13], rowPtr[pixelBase + 16], rowPtr[pixelBase + 19], rowPtr[pixelBase + 22]);
+                        Vector256<float> gFloat = Avx.Multiply(Avx.ConvertToVector256Single(gInt), normFactor);
+
+                        // Cargar y convertir 8 valores B
+                        Vector256<int> bInt = Vector256.Create(
+                            rowPtr[pixelBase + 2], rowPtr[pixelBase + 5], rowPtr[pixelBase + 8], rowPtr[pixelBase + 11],
+                            rowPtr[pixelBase + 14], rowPtr[pixelBase + 17], rowPtr[pixelBase + 20], rowPtr[pixelBase + 23]);
+                        Vector256<float> bFloat = Avx.Multiply(Avx.ConvertToVector256Single(bInt), normFactor);
+
+                        // Almacenar resultados
+                        Avx.Store(rPlane + dstBase, rFloat);
+                        Avx.Store(gPlane + dstBase, gFloat);
+                        Avx.Store(bPlane + dstBase, bFloat);
+                    }
+
+                    // Procesar píxeles restantes de forma escalar
+                    for (; w < width; w++)
+                    {
+                        int pixelIdx = w * 3;
+                        int dstIdx = rowOffset + w;
+                        rPlane[dstIdx] = rowPtr[pixelIdx] * InverseNormalization;
+                        gPlane[dstIdx] = rowPtr[pixelIdx + 1] * InverseNormalization;
+                        bPlane[dstIdx] = rowPtr[pixelIdx + 2] * InverseNormalization;
+                    }
+                });
+            }
+            else
+            {
+                // Fallback sin SIMD
+                Parallel.For(0, height, h =>
+                {
+                    byte* rowPtr = srcPtr + h * stride;
+                    int rowOffset = h * width;
+
+                    for (int w = 0; w < width; w++)
+                    {
+                        int pixelIdx = w * 3;
+                        int dstIdx = rowOffset + w;
+                        rPlane[dstIdx] = rowPtr[pixelIdx] * InverseNormalization;
+                        gPlane[dstIdx] = rowPtr[pixelIdx + 1] * InverseNormalization;
+                        bPlane[dstIdx] = rowPtr[pixelIdx + 2] * InverseNormalization;
+                    }
+                });
+            }
+        }
+
+        /// <summary>
+        /// Versión batch ultra-optimizada con SIMD.
+        /// </summary>
+        public unsafe DenseTensor<float> MatToTensorBatchUltraFast(Mat mat1, Mat mat2)
+        {
+            if (mat1.Rows != mat2.Rows || mat1.Cols != mat2.Cols)
+            {
+                throw new ArgumentException("Ambas imágenes deben tener las mismas dimensiones.");
+            }
+
+            // Conversión a RGB
+            ConvertToRgbInPlace(mat1);
+            ConvertToRgbInPlace(mat2);
+
+            int height = mat1.Rows;
+            int width = mat1.Cols;
+            const int channels = 3;
+            int planeSize = height * width;
+            int singleImageSize = channels * planeSize;
+
+            if (mat1.Type() != MatType.CV_8UC3 || mat2.Type() != MatType.CV_8UC3)
+            {
+                throw new ArgumentException("Tipo de Mat no soportado.");
+            }
+
+            float[] tensorData = new float[2 * singleImageSize];
+
+            // Procesar ambas imágenes en paralelo
+            Parallel.Invoke(
+                () => ProcessImageToTensorUnsafe(mat1, tensorData, 0, height, width, planeSize),
+                () => ProcessImageToTensorUnsafe(mat2, tensorData, singleImageSize, height, width, planeSize)
+            );
+
+            return new DenseTensor<float>(tensorData, new[] { 2, channels, height, width });
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void ConvertToRgbInPlace(Mat mat)
+        {
+            if (mat.Channels() == 3)
+            {
+                Cv2.CvtColor(mat, mat, ColorConversionCodes.BGR2RGB);
+            }
+            else if (mat.Channels() == 4)
+            {
+                Cv2.CvtColor(mat, mat, ColorConversionCodes.BGRA2RGB);
+            }
+        }
+
+        private unsafe void ProcessImageToTensorUnsafe(Mat mat, float[] tensorData, int offset, int height, int width, int planeSize)
+        {
+            byte* srcPtr = (byte*)mat.Data.ToPointer();
+            int stride = (int)mat.Step();
+
+            fixed (float* dstPtr = tensorData)
+            {
+                float* rPlane = dstPtr + offset;
+                float* gPlane = dstPtr + offset + planeSize;
+                float* bPlane = dstPtr + offset + 2 * planeSize;
+
+                Parallel.For(0, height, h =>
+                {
+                    byte* rowPtr = srcPtr + h * stride;
+                    int rowOffset = h * width;
+
+                    for (int w = 0; w < width; w++)
+                    {
+                        int pixelIdx = w * 3;
+                        int dstIdx = rowOffset + w;
+
+                        rPlane[dstIdx] = rowPtr[pixelIdx] * InverseNormalization;
+                        gPlane[dstIdx] = rowPtr[pixelIdx + 1] * InverseNormalization;
+                        bPlane[dstIdx] = rowPtr[pixelIdx + 2] * InverseNormalization;
+                    }
+                });
+            }
+        }
+
+        private void ProcessWithAvx2(byte[] matData, float[] tensorData, int height, int width, int stride)
+        {
+            int planeSize = height * width;
+            Vector256<float> normFactor = Vector256.Create(InverseNormalization);
+
+            Parallel.For(0, height, h =>
+            {
+                int rowStart = h * stride;
+                int rowOffset = h * width;
+
+                for (int w = 0; w < width; w++)
+                {
+                    int pixelIdx = rowStart + w * 3;
+                    int dstIdx = rowOffset + w;
+
+                    tensorData[dstIdx] = matData[pixelIdx] * InverseNormalization;                    // R
+                    tensorData[planeSize + dstIdx] = matData[pixelIdx + 1] * InverseNormalization;    // G
+                    tensorData[2 * planeSize + dstIdx] = matData[pixelIdx + 2] * InverseNormalization; // B
+                }
+            });
+        }
+
+        private void ProcessWithSse2(byte[] matData, float[] tensorData, int height, int width, int stride)
+        {
+            // Similar a AVX2 pero con vectores de 128 bits
+            ProcessScalarOptimized(matData, tensorData, height, width, stride);
+        }
+
+        private void ProcessScalarOptimized(byte[] matData, float[] tensorData, int height, int width, int stride)
+        {
+            int planeSize = height * width;
+
+            Parallel.For(0, height, h =>
+            {
+                int rowStart = h * stride;
+                int rowOffset = h * width;
+
+                for (int w = 0; w < width; w++)
+                {
+                    int pixelIdx = rowStart + w * 3;
+                    int dstIdx = rowOffset + w;
+
+                    // Multiplicación es más rápida que división
+                    tensorData[dstIdx] = matData[pixelIdx] * InverseNormalization;
+                    tensorData[planeSize + dstIdx] = matData[pixelIdx + 1] * InverseNormalization;
+                    tensorData[2 * planeSize + dstIdx] = matData[pixelIdx + 2] * InverseNormalization;
+                }
+            });
         }
     }
 }
