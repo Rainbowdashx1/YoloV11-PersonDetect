@@ -15,6 +15,9 @@ namespace YoloPerson.VideoCapture
         private readonly Preprocessed prePro;
         private readonly FrameRender frameRender;
         private readonly VideoSourceType? preferredSourceType;
+        private Mat letterboxBuffer;
+        private Mat leftLetterboxBuffer;
+        private Mat rightLetterboxBuffer;
 
         public Capture(string videoPath, string? videoProcessPath, string modelPath, VideoSourceType? preferredSourceType = null) 
         {
@@ -25,6 +28,11 @@ namespace YoloPerson.VideoCapture
             session = new SessionGpu(modelPath);
             prePro = new Preprocessed();
             frameRender = new FrameRender();
+
+            // Pre-alocar buffers para letterbox
+            letterboxBuffer = new Mat(new Size(640, 640), MatType.CV_8UC3);
+            leftLetterboxBuffer = new Mat(new Size(640, 640), MatType.CV_8UC3);
+            rightLetterboxBuffer = new Mat(new Size(640, 640), MatType.CV_8UC3);
         }
         public void runWithModel1Batch()
         {
@@ -129,8 +137,8 @@ namespace YoloPerson.VideoCapture
         {
             float r;
             int padX, padY;
-            var matframeLetterbox = process.Letterbox(frame, 640, 640,out r, out padX, out padY);
-            Tensor<float>? output0 = session.SessionRun(matframeLetterbox);
+            process.LetterboxOptimized(frame, letterboxBuffer, 640, 640, out r, out padX, out padY);
+            Tensor<float>? output0 = session.SessionRun(letterboxBuffer);
             return prePro.PreproccessedOutput(output0, padX, padY, r);
         }
         private List<Detection> ProcessFrameBatchOverLap(Mat frame)
@@ -148,10 +156,10 @@ namespace YoloPerson.VideoCapture
             float r1, r2;
             int padX1, padY1, padX2, padY2;
     
-            var leftLetterbox = process.Letterbox(leftRegion, 640, 640, out r1, out padX1, out padY1);
-            var rightLetterbox = process.Letterbox(rightRegion, 640, 640, out r2, out padX2, out padY2);
+            process.LetterboxOptimized(leftRegion, leftLetterboxBuffer, 640, 640, out r1, out padX1, out padY1);
+            process.LetterboxOptimized(rightRegion, rightLetterboxBuffer, 640, 640, out r2, out padX2, out padY2);
 
-            Tensor<float>? outputSession = session.SessionRunBatch(leftLetterbox, rightLetterbox);
+            Tensor<float>? outputSession = session.SessionRunBatch(leftLetterboxBuffer, rightLetterboxBuffer);
             var (leftDetections, rightDetections) = prePro.PreproccessedOutputBatchOptimized(
                 outputSession,
                 padX1, padY1, r1,
