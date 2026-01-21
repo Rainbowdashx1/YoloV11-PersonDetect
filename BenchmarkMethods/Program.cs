@@ -7,9 +7,10 @@ public class Program
     private static void Main(string[] args)
     {
         var config = DefaultConfig.Instance.WithOptions(ConfigOptions.DisableOptimizationsValidator);//Required for ONNX nuget, not in release mode
-        
-        var summaryTensor = BenchmarkRunner.Run<BenchTensor>(config);
-        var summaryLetter = BenchmarkRunner.Run<BenchLetterbox>(config);
-        var summaryResize = BenchmarkRunner.Run<BenchResize>(config);
+        var summaryTensor = BenchmarkRunner.Run<BenchTensorBatch>(config);
+
+        //var summaryTensor = BenchmarkRunner.Run<BenchTensor>(config);
+        //var summaryLetter = BenchmarkRunner.Run<BenchLetterbox>(config);
+        //var summaryResize = BenchmarkRunner.Run<BenchResize>(config);
     }
 }

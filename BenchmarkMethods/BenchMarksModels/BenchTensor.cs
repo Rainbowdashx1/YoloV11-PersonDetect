@@ -11,24 +11,19 @@ namespace BenchmarkMethods.BenchMarksModels
     [RankColumn]
     public class BenchTensor
     {
-        private Mat testMat640;
-        private Mat testMat640_2;
+        private Mat testMat640 = null!;
         private SessionGpu sessionGpu = null!;
-        private string ModelPath;
+        private string ModelPath = null!;
 
         [GlobalSetup]
         public void Setup()
         {
             ModelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ModelOnnx", "yolo11n1batch.onnx");
-            // Crear Mat de 640x640
+
+            // Crear Mat de 640x640 con variación para simular imagen real
             testMat640 = new Mat(new Size(640, 640), MatType.CV_8UC3, new Scalar(100, 150, 200));
-            testMat640_2 = new Mat(new Size(640, 640), MatType.CV_8UC3, new Scalar(50, 100, 150));
-
-            // Añadir algo de variación para simular imagen real
             Cv2.Randn(testMat640, new Scalar(128, 128, 128), new Scalar(50, 50, 50));
-            Cv2.Randn(testMat640_2, new Scalar(128, 128, 128), new Scalar(50, 50, 50));
 
-            // Inicializar SessionGpu - necesario para acceder a los métodos de conversión
             sessionGpu = new SessionGpu(ModelPath);
         }
 
@@ -36,7 +31,6 @@ namespace BenchmarkMethods.BenchMarksModels
         public void Cleanup()
         {
             testMat640?.Dispose();
-            testMat640_2?.Dispose();
             sessionGpu?.session?.Dispose();
         }
 
@@ -83,41 +77,12 @@ namespace BenchmarkMethods.BenchMarksModels
             return sessionGpu.MatToTensorHybrid(clone);
         }
 
-        #endregion
-
-        #region Batch Benchmarks
-
-        //[Benchmark(Baseline = true)]
-        [Benchmark]
-        [BenchmarkCategory("Batch")]
-        public DenseTensor<float> MatToTensorParallelBatch_Current()
-        {
-            using var clone1 = testMat640.Clone();
-            using var clone2 = testMat640_2.Clone();
-            return sessionGpu.MatToTensorParallelBatch(clone1, clone2);
-        }
-
-        [Benchmark]
-        [BenchmarkCategory("Batch")]
-        public DenseTensor<float> MatToTensorBatchUltraFast_Optimized()
-        {
-            using var clone1 = testMat640.Clone();
-            using var clone2 = testMat640_2.Clone();
-            return sessionGpu.MatToTensorBatchUltraFast(clone1, clone2);
-        }
-
-        [Benchmark]
-        [BenchmarkCategory("Batch")]
-        public DenseTensor<float> MatToTensorHybridBatch_Best()
-        {
-            using var clone1 = testMat640.Clone();
-            using var clone2 = testMat640_2.Clone();
-            return sessionGpu.MatToTensorHybridBatch(clone1, clone2);
-        }
 
         #endregion
 
         #region Without Clone (Real-world scenario where Mat is consumed)
+
+
 
         [Benchmark]
         [BenchmarkCategory("NoClone")]
