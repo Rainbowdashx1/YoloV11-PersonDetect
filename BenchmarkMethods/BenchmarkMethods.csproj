@@ -11,4 +11,10 @@
     <ProjectReference Include="..\YoloPerson\YoloPerson.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="ModelOnnx\yolo11n1batch.onnx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
