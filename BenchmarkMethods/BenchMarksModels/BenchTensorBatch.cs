@@ -44,7 +44,7 @@ namespace BenchmarkMethods.BenchMarksModels
         {
             using var clone1 = testMat640_1.Clone();
             using var clone2 = testMat640_2.Clone();
-            return sessionGpu.MatToTensorParallelBatch(clone1, clone2);
+            return TensorConverterBatch.MatToTensorParallelBatch(clone1, clone2);
         }
 
         [Benchmark]
@@ -52,7 +52,7 @@ namespace BenchmarkMethods.BenchMarksModels
         {
             using var clone1 = testMat640_1.Clone();
             using var clone2 = testMat640_2.Clone();
-            return sessionGpu.MatToTensorBatchUltraFast(clone1, clone2);
+            return TensorConverterBatch.MatToTensorBatchUltraFast(clone1, clone2);
         }
 
         [Benchmark]
@@ -60,7 +60,7 @@ namespace BenchmarkMethods.BenchMarksModels
         {
             using var clone1 = testMat640_1.Clone();
             using var clone2 = testMat640_2.Clone();
-            return sessionGpu.MatToTensorHybridBatch(clone1, clone2);
+            return TensorConverterBatch.MatToTensorHybridBatch(clone1, clone2);
         }
 
         [Benchmark]
@@ -68,7 +68,7 @@ namespace BenchmarkMethods.BenchMarksModels
         {
             using var clone1 = testMat640_1.Clone();
             using var clone2 = testMat640_2.Clone();
-            return sessionGpu.MatToTensorHybridBatchV2(clone1, clone2);
+            return TensorConverterBatch.MatToTensorHybridBatchV2(clone1, clone2);
         }
 
         [Benchmark]
@@ -76,7 +76,7 @@ namespace BenchmarkMethods.BenchMarksModels
         {
             using var clone1 = testMat640_1.Clone();
             using var clone2 = testMat640_2.Clone();
-            return sessionGpu.MatToTensorHybridBatchV3(clone1, clone2);
+            return TensorConverterBatch.MatToTensorHybridBatchV3(clone1, clone2);
         }
 
         [Benchmark]
@@ -84,7 +84,7 @@ namespace BenchmarkMethods.BenchMarksModels
         {
             using var clone1 = testMat640_1.Clone();
             using var clone2 = testMat640_2.Clone();
-            return sessionGpu.MatToTensorHybridBatchV4(clone1, clone2);
+            return TensorConverterBatch.MatToTensorHybridBatchV4(clone1, clone2);
         }
     }
 }

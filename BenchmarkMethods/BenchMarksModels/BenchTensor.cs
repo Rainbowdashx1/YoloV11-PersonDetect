@@ -42,7 +42,7 @@ namespace BenchmarkMethods.BenchMarksModels
         {
             // Clonar para evitar modificar el original (BGR2RGB modifica in-place)
             using var clone = testMat640.Clone();
-            return sessionGpu.MatToTensor(clone);
+            return TensorConverterSingle.MatToTensor(clone);
         }
 
         [Benchmark]
@@ -50,7 +50,7 @@ namespace BenchmarkMethods.BenchMarksModels
         public DenseTensor<float> MatToTensorParallel_Current()
         {
             using var clone = testMat640.Clone();
-            return sessionGpu.MatToTensorParallel(clone);
+            return TensorConverterSingle.MatToTensorParallel(clone);
         }
 
         [Benchmark]
@@ -58,7 +58,7 @@ namespace BenchmarkMethods.BenchMarksModels
         public DenseTensor<float> MatToTensorUltraFast_SIMD()
         {
             using var clone = testMat640.Clone();
-            return sessionGpu.MatToTensorUltraFast(clone);
+            return TensorConverterSingle.MatToTensorUltraFast(clone);
         }
 
         [Benchmark]
@@ -66,7 +66,7 @@ namespace BenchmarkMethods.BenchMarksModels
         public DenseTensor<float> MatToTensorUnsafe_Pointers()
         {
             using var clone = testMat640.Clone();
-            return sessionGpu.MatToTensorUnsafe(clone);
+            return TensorConverterSingle.MatToTensorUnsafe(clone);
         }
 
         [Benchmark]
@@ -74,7 +74,7 @@ namespace BenchmarkMethods.BenchMarksModels
         public DenseTensor<float> MatToTensorHybrid_Best()
         {
             using var clone = testMat640.Clone();
-            return sessionGpu.MatToTensorHybrid(clone);
+            return TensorConverterSingle.MatToTensorHybrid(clone);
         }
 
 
@@ -89,7 +89,7 @@ namespace BenchmarkMethods.BenchMarksModels
         public DenseTensor<float> Parallel_NoClone()
         {
             var mat = new Mat(new Size(640, 640), MatType.CV_8UC3, new Scalar(100, 150, 200));
-            var result = sessionGpu.MatToTensorParallel(mat);
+            var result = TensorConverterSingle.MatToTensorParallel(mat);
             mat.Dispose();
             return result;
         }
@@ -99,7 +99,7 @@ namespace BenchmarkMethods.BenchMarksModels
         public DenseTensor<float> Hybrid_NoClone()
         {
             var mat = new Mat(new Size(640, 640), MatType.CV_8UC3, new Scalar(100, 150, 200));
-            var result = sessionGpu.MatToTensorHybrid(mat);
+            var result = TensorConverterSingle.MatToTensorHybrid(mat);
             mat.Dispose();
             return result;
         }
@@ -109,7 +109,7 @@ namespace BenchmarkMethods.BenchMarksModels
         public DenseTensor<float> UltraFast_NoClone()
         {
             var mat = new Mat(new Size(640, 640), MatType.CV_8UC3, new Scalar(100, 150, 200));
-            var result = sessionGpu.MatToTensorUltraFast(mat);
+            var result = TensorConverterSingle.MatToTensorUltraFast(mat);
             mat.Dispose();
             return result;
         }
@@ -119,7 +119,7 @@ namespace BenchmarkMethods.BenchMarksModels
         public DenseTensor<float> Unsafe_NoClone()
         {
             var mat = new Mat(new Size(640, 640), MatType.CV_8UC3, new Scalar(100, 150, 200));
-            var result = sessionGpu.MatToTensorUnsafe(mat);
+            var result = TensorConverterSingle.MatToTensorUnsafe(mat);
             mat.Dispose();
             return result;
         }
