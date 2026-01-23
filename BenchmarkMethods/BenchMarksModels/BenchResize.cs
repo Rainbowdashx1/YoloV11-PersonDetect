@@ -26,13 +26,13 @@ namespace BenchmarkMethods.BenchMarksModels
         [Benchmark]
         public DenseTensor<float> OriginalMatToTensor()
         {
-            return Session.MatToTensor(testMat);
+            return TensorConverterSingle.MatToTensor(testMat);
         }
 
         [Benchmark]
         public DenseTensor<float> OptimizedMatToTensorv2()
         {
-            return Session.MatToTensorParallel(testMat);
+            return TensorConverterSingle.MatToTensorParallel(testMat);
         }
     }
 }
