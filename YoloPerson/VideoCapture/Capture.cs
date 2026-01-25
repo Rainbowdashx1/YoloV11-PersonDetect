@@ -15,9 +15,11 @@ namespace YoloPerson.VideoCapture
         private readonly Preprocessed prePro;
         private readonly FrameRender frameRender;
         private readonly VideoSourceType? preferredSourceType;
+        /*Buffer Reutilizables*/
         private Mat letterboxBuffer;
         private Mat leftLetterboxBuffer;
         private Mat rightLetterboxBuffer;
+        private  List<Detection> _Detections;
 
         public Capture(string videoPath, string? videoProcessPath, string modelPath, VideoSourceType? preferredSourceType = null) 
         {
@@ -33,6 +35,7 @@ namespace YoloPerson.VideoCapture
             letterboxBuffer = new Mat(new Size(640, 640), MatType.CV_8UC3);
             leftLetterboxBuffer = new Mat(new Size(640, 640), MatType.CV_8UC3);
             rightLetterboxBuffer = new Mat(new Size(640, 640), MatType.CV_8UC3);
+            _Detections = new List<Detection>();
         }
         public void runWithModel1Batch()
         {
@@ -54,8 +57,8 @@ namespace YoloPerson.VideoCapture
                         continue;
                     }
 
-                    List<Detection> detections = ProcessFrame(frame);
-                    frameRender.DrawDetections(frame, detections);
+                    ProcessFrame(frame);
+                    frameRender.DrawDetections(frame, _Detections);
                     
                     videoWriter?.Write(frame);
                     Cv2.ImShow("Cuadro Actual", frame);
@@ -133,13 +136,14 @@ namespace YoloPerson.VideoCapture
             Console.WriteLine($"Video de salida configurado: {Path.GetFileName(videoProcessPath)}");
             return videoWriter;
         }
-        private List<Detection> ProcessFrame(Mat frame)
+        private void ProcessFrame(Mat frame)
         {
             float r;
             int padX, padY;
             process.LetterboxOptimized(frame, letterboxBuffer, 640, 640, out r, out padX, out padY);
             Tensor<float>? output0 = session.SessionRun(letterboxBuffer);
-            return prePro.PreproccessedOutput(output0, padX, padY, r);
+            _Detections.Clear();
+            prePro.PreproccessedOutput(output0, padX, padY, r, _Detections);
         }
         private List<Detection> ProcessFrameBatchOverLap(Mat frame)
         {

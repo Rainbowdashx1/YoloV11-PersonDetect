@@ -4,12 +4,10 @@ namespace YoloPerson.PreProcess
 {
     public class Preprocessed
     {
-        public List<Detection> PreproccessedOutput(Tensor<float>? output0, int padX, int padY, float r, bool nonMaxSuppression = true, float nonMaxSuppressionThreshold = 0.45f, float thresHold = 0.25f)
+        public void PreproccessedOutput(Tensor<float>? output0, int padX, int padY, float r,List<Detection> _Detections, bool nonMaxSuppression = true, float nonMaxSuppressionThreshold = 0.45f, float thresHold = 0.25f)
         {
-            List<Detection> detections = new List<Detection>();
-
             if (output0 is null)
-                return detections;
+                return;
 
             var dims = output0.Dimensions;
             int batch = dims[0];
@@ -54,7 +52,7 @@ namespace YoloPerson.PreProcess
                 float y2_orig = y2_nopad / r;
 
                 // Store detection in the ORIGINAL image coordinates
-                detections.Add(new Detection(
+                _Detections.Add(new Detection(
                     x1_orig,
                     y1_orig,
                     x2_orig,
@@ -66,12 +64,7 @@ namespace YoloPerson.PreProcess
 
             if (nonMaxSuppression)
             {
-                var finalDetections = NonMaxSuppression(detections, nonMaxSuppressionThreshold);
-                return finalDetections;
-            }
-            else
-            {
-                return detections;
+                NonMaxSuppression(_Detections, nonMaxSuppressionThreshold);
             }
         }
         public (List<Detection> leftDetections, List<Detection> rightDetections) PreproccessedOutputBatchOptimized(
@@ -140,29 +133,53 @@ namespace YoloPerson.PreProcess
 
             if (nonMaxSuppression)
             {
-                detectionsLeft = NonMaxSuppression(detectionsLeft, nonMaxSuppressionThreshold);
-                detectionsRight = NonMaxSuppression(detectionsRight, nonMaxSuppressionThreshold);
+                NonMaxSuppression(detectionsLeft, nonMaxSuppressionThreshold);
+                NonMaxSuppression(detectionsRight, nonMaxSuppressionThreshold);
             }
 
             return (detectionsLeft, detectionsRight);
         }
        
-        private List<Detection> NonMaxSuppression(List<Detection> detections, float iouThreshold)
+        private void NonMaxSuppression(List<Detection> detections, float iouThreshold)
         {
-            var sorted = new List<Detection>(detections);
-            sorted.Sort((a, b) => b.Score.CompareTo(a.Score));
+            if (detections.Count <= 1)
+                return;
 
-            var final = new List<Detection>();
+            // Ordenar in-place por score descendente
+            detections.Sort((a, b) => b.Score.CompareTo(a.Score));
 
-            while (sorted.Count > 0)
+            int writeIndex = 0;
+
+            for (int i = 0; i < detections.Count; i++)
             {
-                var best = sorted[0];
-                final.Add(best);
-                sorted.RemoveAt(0);
+                var current = detections[i];
+                bool keep = true;
 
-                sorted.RemoveAll(det => IoU(best, det) > iouThreshold);
+                // Comparar solo con las detecciones ya aceptadas (0 a writeIndex-1)
+                for (int j = 0; j < writeIndex; j++)
+                {
+                    if (IoU(current, detections[j]) > iouThreshold)
+                    {
+                        keep = false;
+                        break;
+                    }
+                }
+
+                if (keep)
+                {
+                    if (i != writeIndex)
+                    {
+                        detections[writeIndex] = current;
+                    }
+                    writeIndex++;
+                }
             }
-            return final;
+
+            // Eliminar elementos sobrantes al final
+            if (writeIndex < detections.Count)
+            {
+                detections.RemoveRange(writeIndex, detections.Count - writeIndex);
+            }
         }
         public float IoU(Detection a, Detection b)
         {
