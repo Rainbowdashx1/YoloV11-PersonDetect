@@ -13,6 +13,8 @@ namespace YoloPerson.Nvidia
     public class SessionGpu
     {
         public InferenceSession session;
+        public DenseTensor<float> _reusableTensor = new(new[] { 1, 3, 640, 640 });
+
         public SessionGpu(string modelPath) 
         {
             SessionOptions sessionOptions = new SessionOptions();
@@ -56,11 +58,11 @@ namespace YoloPerson.Nvidia
         }
         public Tensor<float>? SessionRun(Mat matframeLetterbox) 
         {
-            DenseTensor<float> inputTensor = TensorConverterSingle.MatToTensorHybrid(matframeLetterbox);
+            TensorConverterSingle.MatToTensorHybrid(matframeLetterbox, _reusableTensor);
 
             var inputs = new List<NamedOnnxValue>
             {
-                NamedOnnxValue.CreateFromTensor("images", inputTensor)
+                NamedOnnxValue.CreateFromTensor("images", _reusableTensor)
             };
 
             var results = session.Run(inputs);

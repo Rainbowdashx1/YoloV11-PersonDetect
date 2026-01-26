@@ -14,6 +14,7 @@ namespace BenchmarkMethods.BenchMarksModels
         private Mat testMat640 = null!;
         private SessionGpu sessionGpu = null!;
         private string ModelPath = null!;
+        private DenseTensor<float> _reusableTensor = new(new[] { 1, 3, 640, 640 });
 
         [GlobalSetup]
         public void Setup()
@@ -123,7 +124,15 @@ namespace BenchmarkMethods.BenchMarksModels
             mat.Dispose();
             return result;
         }
-
+        [Benchmark]
+        [BenchmarkCategory("NoClone")]
+        public DenseTensor<float> Hybrid_NoCloneNoTensor()
+        {
+            var mat = new Mat(new Size(640, 640), MatType.CV_8UC3, new Scalar(100, 150, 200));
+            TensorConverterSingle.MatToTensorHybrid(mat, _reusableTensor);
+            mat.Dispose();
+            return _reusableTensor;
+        }
         #endregion
     }
 }
