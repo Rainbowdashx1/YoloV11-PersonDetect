@@ -14,6 +14,7 @@ namespace YoloPerson.Nvidia
     {
         public InferenceSession session;
         public DenseTensor<float> _reusableTensor = new(new[] { 1, 3, 640, 640 });
+        public DenseTensor<float> _reusableTensorBatch = new(new[] { 2, 3, 640, 640 });
 
         public SessionGpu(string modelPath) 
         {
@@ -71,11 +72,11 @@ namespace YoloPerson.Nvidia
         }
         public Tensor<float>? SessionRunBatch(Mat mat1, Mat mat2)
         {
-            DenseTensor<float> inputTensor = TensorConverterBatch.MatToTensorHybridBatch(mat1, mat2);
+            TensorConverterBatch.MatToTensorHybridBatch(mat1, mat2, _reusableTensorBatch);
 
             var inputs = new List<NamedOnnxValue>
             {
-                NamedOnnxValue.CreateFromTensor("images", inputTensor)
+                NamedOnnxValue.CreateFromTensor("images", _reusableTensorBatch)
             };
 
             var results = session.Run(inputs);

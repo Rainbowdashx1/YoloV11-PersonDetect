@@ -146,6 +146,59 @@ namespace YoloPerson.Nvidia
         }
 
         /// <summary>
+        /// Versión híbrida batch: SIMD + Unsafe + Parallel para procesar 2 imágenes.
+        /// Combina las optimizaciones de MatToTensorHybrid con procesamiento batch.
+        /// con tensor reutilizable - evita allocations.
+        /// </summary>
+        public static unsafe void MatToTensorHybridBatch(Mat mat1, Mat mat2, DenseTensor<float> tensor)
+        {
+            if (mat1.Rows != mat2.Rows || mat1.Cols != mat2.Cols)
+            {
+                throw new ArgumentException("Ambas imágenes deben tener las mismas dimensiones.");
+            }
+
+            // Conversión a RGB en paralelo
+            //Parallel.Invoke(
+            //    () => ConvertToRgbInPlace(mat1),
+            //    () => ConvertToRgbInPlace(mat2)
+            //);
+
+            int height = mat1.Rows;
+            int width = mat1.Cols;
+            const int channels = 3;
+            int planeSize = height * width;
+            int singleImageSize = channels * planeSize;
+
+            if (mat1.Type() != MatType.CV_8UC3 || mat2.Type() != MatType.CV_8UC3)
+            {
+                throw new ArgumentException("Tipo de Mat no soportado. Se requiere CV_8UC3.");
+            }
+
+            byte* srcPtr1 = (byte*)mat1.Data.ToPointer();
+            byte* srcPtr2 = (byte*)mat2.Data.ToPointer();
+            int stride1 = (int)mat1.Step();
+            int stride2 = (int)mat2.Step();
+
+            Memory<float> tensorMemory = tensor.Buffer;
+            MemoryHandle memHandle = tensorMemory.Pin();
+
+            try
+            {
+                float* dstPtr = (float*)memHandle.Pointer;
+
+                // Procesar ambas imágenes en paralelo - BGR→RGB inline
+                Parallel.Invoke(
+                    () => ProcessImageBgrToRgbInternal(srcPtr1, stride1, dstPtr, 0, height, width, planeSize),
+                    () => ProcessImageBgrToRgbInternal(srcPtr2, stride2, dstPtr, singleImageSize, height, width, planeSize)
+                );
+            }
+            finally
+            {
+                memHandle.Dispose();
+            }
+        }
+
+        /// <summary>
         /// Versión V2: ELIMINA Cv2.CvtColor - hace BGR→RGB directamente en SIMD.
         /// Ahorra una pasada completa sobre cada imagen.
         /// </summary>

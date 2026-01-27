@@ -15,6 +15,7 @@ namespace BenchmarkMethods.BenchMarksModels
         private Mat testMat640_2 = null!;
         private SessionGpu sessionGpu = null!;
         private string ModelPath = null!;
+        public DenseTensor<float> _reusableTensorBatch = new(new[] { 2, 3, 640, 640 });
 
         [GlobalSetup]
         public void Setup()
@@ -85,6 +86,15 @@ namespace BenchmarkMethods.BenchMarksModels
             using var clone1 = testMat640_1.Clone();
             using var clone2 = testMat640_2.Clone();
             return TensorConverterBatch.MatToTensorHybridBatchV4(clone1, clone2);
+        }
+
+        [Benchmark]
+        public DenseTensor<float> HybridBatch_V1_Tensor()
+        {
+            using var clone1 = testMat640_1.Clone();
+            using var clone2 = testMat640_2.Clone();
+            TensorConverterBatch.MatToTensorHybridBatch(clone1, clone2, _reusableTensorBatch);
+            return _reusableTensorBatch;
         }
     }
 }
