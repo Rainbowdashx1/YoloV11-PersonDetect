@@ -15,6 +15,8 @@ namespace YoloPerson.Nvidia
         public InferenceSession session;
         public DenseTensor<float> _reusableTensor = new(new[] { 1, 3, 640, 640 });
         public DenseTensor<float> _reusableTensorBatch = new(new[] { 2, 3, 640, 640 });
+        private List<NamedOnnxValue> _reusableInputsSingle;
+        private List<NamedOnnxValue> _reusableInputsBatch;
 
         public SessionGpu(string modelPath) 
         {
@@ -56,30 +58,27 @@ namespace YoloPerson.Nvidia
 
             sessionOptions.AppendExecutionProvider_CUDA(0);
             session = new InferenceSession(modelPath, sessionOptions);
+            
+            // Inicializar inputs reutilizables
+            _reusableInputsSingle = new List<NamedOnnxValue>(1)
+            {
+                NamedOnnxValue.CreateFromTensor("images", _reusableTensor)
+            };
+            _reusableInputsBatch = new List<NamedOnnxValue>(1)
+            {
+                NamedOnnxValue.CreateFromTensor("images", _reusableTensorBatch)
+            };
         }
         public Tensor<float>? SessionRun(Mat matframeLetterbox) 
         {
             TensorConverterSingle.MatToTensorHybrid(matframeLetterbox, _reusableTensor);
-
-            var inputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor("images", _reusableTensor)
-            };
-
-            var results = session.Run(inputs);
-            var output = results.First().AsTensor<float>();
+            var results = session.Run(_reusableInputsSingle);
             return results.First(r => r.Name == "output0").AsTensor<float>();
         }
         public Tensor<float>? SessionRunBatch(Mat mat1, Mat mat2)
         {
             TensorConverterBatch.MatToTensorHybridBatch(mat1, mat2, _reusableTensorBatch);
-
-            var inputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor("images", _reusableTensorBatch)
-            };
-
-            var results = session.Run(inputs);
+            var results = session.Run(_reusableInputsBatch);
             return results.First(r => r.Name == "output0").AsTensor<float>();
         }
     }
