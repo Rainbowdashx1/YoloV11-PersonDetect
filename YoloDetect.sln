@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.3.11408.92 d18.3
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "YoloPerson", "YoloPerson\YoloPerson.csproj", "{D8263000-2F66-4074-8141-F743D75B5474}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "YoloDetect", "YoloDetect\YoloDetect.csproj", "{D8263000-2F66-4074-8141-F743D75B5474}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BenchmarkMethods", "BenchmarkMethods\BenchmarkMethods.csproj", "{6DA54AFC-D5F2-4C77-97A1-710113B63CAD}"
 EndProject
