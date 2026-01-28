@@ -57,6 +57,35 @@ YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YO
 
 # Changelog
 
+## Version 1.0.3
+
+### Letterbox preprocessing improved again
+- Added a new method: **`LetterboxOptimized`**
+- According to benchmarks, **`LetterboxOptimized` outperforms the previous implementation**
+- Even though the difference can be in the **nanosecond range**, the optimized version is still **faster and more efficient**
+
+### New and expanded benchmarks for Mat → Tensor
+- Added **new benchmarks** focused on **Mat → Tensor conversion**
+- Goal: **find the fastest and most optimal approach**
+- Added **more conversion methods** and **new strategies** to speed up the conversion further
+
+### Benchmark & conversion code refactor
+- Benchmarks and Mat → Tensor conversion code were **separated and reorganized**
+- The conversion logic is now split into specialized handlers:
+  - **Single-image pipeline**
+  - **Two-image pipeline**
+
+### Reuse buffers to reduce allocations and CPU pressure
+- Added multiple optimizations by **reusing buffers** (lists/tensors) instead of re-creating them on every inference
+- Benefits:
+  - Better runtime performance
+  - Less CPU overhead from GC/allocation churn
+
+### YOLOv26 support (Batch = 1)
+- Added support for **YOLOv26 models with batch size = 1**
+- A **batch size = 2 model was added**, but **support is not implemented yet** (pending)
+
+
 ## Version 1.0.2 - Two-Batch Processing 
 
 #### Added
