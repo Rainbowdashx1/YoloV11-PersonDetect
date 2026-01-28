@@ -2,7 +2,7 @@
 
 ## Description
 
-YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YOLOv11** for detecting people in videos. This project is designed for frame processing using **Microsoft.ML.OnnxRuntime.Gpu (v1.18.1)** and **OpenCvSharp4**.
+YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YOLOv11** and **YOLOv26** for detecting people in videos. This project is designed for frame processing using **Microsoft.ML.OnnxRuntime.Gpu (v1.18.1)** and **OpenCvSharp4**.
 
 ## System Used
 
