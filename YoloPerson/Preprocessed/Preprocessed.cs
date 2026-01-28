@@ -139,7 +139,58 @@ namespace YoloPerson.PreProcess
 
             return (detectionsLeft, detectionsRight);
         }
-       
+        /// <summary>
+        /// Post-procesamiento para YOLOv26
+        /// Output shape: [1, 300, 6] donde 6 = [x1, y1, x2, y2, score, class_id]
+        /// </summary>
+        public void PreproccessedOutputYolov26(Tensor<float>? output0, int padX, int padY, float r,
+            List<Detection> _Detections, float thresHold = 0.25f, int targetClass = 0)
+        {
+            if (output0 is null)
+                return;
+
+            var dims = output0.Dimensions;
+            // dims[0] = batch (1)
+            // dims[1] = max detections (300)
+            // dims[2] = 6 valores [x1, y1, x2, y2, score, class_id]
+            int numPreds = dims[1];
+
+            for (int i = 0; i < numPreds; i++)
+            {
+                float score = output0[0, i, 4];
+
+                // Si score es 0 o muy bajo, probablemente ya no hay más detecciones válidas
+                if (score < thresHold)
+                    continue;
+
+                int classId = (int)output0[0, i, 5];
+
+                // Filtrar por clase si es necesario (0 = persona en COCO)
+                if (classId != targetClass)
+                    continue;
+
+                // Coordenadas ya en formato x1,y1,x2,y2 (esquinas) en espacio 640x640
+                float x1_640 = output0[0, i, 0];
+                float y1_640 = output0[0, i, 1];
+                float x2_640 = output0[0, i, 2];
+                float y2_640 = output0[0, i, 3];
+
+                // Remover padding del letterbox
+                float x1_nopad = x1_640 - padX;
+                float y1_nopad = y1_640 - padY;
+                float x2_nopad = x2_640 - padX;
+                float y2_nopad = y2_640 - padY;
+
+                // Escalar a coordenadas originales
+                float x1_orig = x1_nopad / r;
+                float y1_orig = y1_nopad / r;
+                float x2_orig = x2_nopad / r;
+                float y2_orig = y2_nopad / r;
+
+                _Detections.Add(new Detection(x1_orig, y1_orig, x2_orig, y2_orig, score, classId));
+            }
+        }
+
         private void NonMaxSuppression(List<Detection> detections, float iouThreshold)
         {
             if (detections.Count <= 1)

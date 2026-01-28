@@ -36,6 +36,12 @@
     <None Update="ModelOnnx\yolo11n2batch.onnx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="ModelOnnx\yolo26n1Batch.onnx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="ModelOnnx\yolo26n2Batch.onnx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Video\people-walking.mp4">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

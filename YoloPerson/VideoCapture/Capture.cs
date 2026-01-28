@@ -20,7 +20,6 @@ namespace YoloPerson.VideoCapture
         private Mat leftLetterboxBuffer;
         private Mat rightLetterboxBuffer;
         private  List<Detection> _Detections;
-
         public Capture(string videoPath, string? videoProcessPath, string modelPath, VideoSourceType? preferredSourceType = null) 
         {
             this.videoPath = videoPath;
@@ -113,6 +112,45 @@ namespace YoloPerson.VideoCapture
                 videoWriter?.Dispose();
             }
         }
+        public void runWithModel1BatchYolo26()
+        {
+            using var videoSource = VideoSourceFactory.Create(videoPath, preferredSourceType, lowLatency: true);
+            using var videoWriter = CreateVideoWriter(videoSource);
+
+            try
+            {
+                Mat frame = new Mat();
+                int currentFrame = 0;
+                int skippedFrames = 0;
+
+                while (videoSource.Read(frame))
+                {
+                    currentFrame++;
+                    if (frame.Empty())
+                    {
+                        skippedFrames++;
+                        continue;
+                    }
+
+                    ProcessFrameYolo26(frame);
+                    frameRender.DrawDetections(frame, _Detections);
+
+                    videoWriter?.Write(frame);
+                    Cv2.ImShow("Cuadro Actual", frame);
+
+                    if (Cv2.WaitKey(1) >= 0)
+                        break;
+                }
+
+                Console.WriteLine($"Frames procesados: {currentFrame}, Frames saltados: {skippedFrames}");
+                Cv2.DestroyAllWindows();
+            }
+            finally
+            {
+                videoWriter?.Dispose();
+            }
+        }
+
         private OpenCvSharp.VideoWriter? CreateVideoWriter(IVideoSource source)
         {
             if (videoProcessPath == null)
@@ -144,6 +182,15 @@ namespace YoloPerson.VideoCapture
             Tensor<float>? output0 = session.SessionRun(letterboxBuffer);
             _Detections.Clear();
             prePro.PreproccessedOutput(output0, padX, padY, r, _Detections);
+        }
+        private void ProcessFrameYolo26(Mat frame)
+        {
+            float r;
+            int padX, padY;
+            process.LetterboxOptimized(frame, letterboxBuffer, 640, 640, out r, out padX, out padY);
+            Tensor<float>? output0 = session.SessionRun(letterboxBuffer);
+            _Detections.Clear();
+            prePro.PreproccessedOutputYolov26(output0, padX, padY, r, _Detections);
         }
         private List<Detection> ProcessFrameBatchOverLap(Mat frame)
         {

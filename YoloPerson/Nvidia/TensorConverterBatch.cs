@@ -16,7 +16,7 @@ namespace YoloPerson.Nvidia
     {
         private const float InverseNormalization = 1.0f / 255.0f;
         private static readonly ArrayPool<float> FloatPool = ArrayPool<float>.Shared;
-
+        private static Vector256<float> normFactor = Vector256.Create(InverseNormalization);
         public static DenseTensor<float> MatToTensorParallelBatch(Mat mat1, Mat mat2)
         {
             // Validación de que ambas imágenes tienen las mismas dimensiones
@@ -157,7 +157,7 @@ namespace YoloPerson.Nvidia
                 throw new ArgumentException("Ambas imágenes deben tener las mismas dimensiones.");
             }
 
-            // Conversión a RGB en paralelo
+            //// Conversión a RGB en paralelo
             //Parallel.Invoke(
             //    () => ConvertToRgbInPlace(mat1),
             //    () => ConvertToRgbInPlace(mat2)
@@ -402,8 +402,6 @@ namespace YoloPerson.Nvidia
 
             if (Avx2.IsSupported && width >= 8)
             {
-                Vector256<float> normFactor = Vector256.Create(InverseNormalization);
-
                 Parallel.For(0, height, h =>
                 {
                     byte* rowPtr = srcPtr + h * stride;

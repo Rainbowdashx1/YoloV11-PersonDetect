@@ -16,6 +16,7 @@ namespace YoloPerson.Nvidia
     {
         private const float InverseNormalization = 1.0f / 255.0f;
         private static readonly ArrayPool<byte> BytePool = ArrayPool<byte>.Shared;
+        private static Vector256<float> normFactor = Vector256.Create(InverseNormalization);
 
         public static DenseTensor<float> MatToTensor(Mat letterboxMat)
         {
@@ -342,8 +343,6 @@ namespace YoloPerson.Nvidia
 
                 if (Avx2.IsSupported && width >= 8)
                 {
-                    Vector256<float> normFactor = Vector256.Create(InverseNormalization);
-
                     Parallel.For(0, height, h =>
                     {
                         byte* rowPtr = srcPtr + h * stride;
