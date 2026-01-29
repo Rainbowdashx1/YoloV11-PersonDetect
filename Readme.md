@@ -1,8 +1,8 @@
-﻿# YOLOPerson
+﻿# YOLODetect (YOLOPerson)
 
 ## Description
 
-YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YOLOv11** and **YOLOv26** for detecting people in videos. This project is designed for frame processing using **Microsoft.ML.OnnxRuntime.Gpu (v1.18.1)** and **OpenCvSharp4**.
+**YoloDetect** is a high-performance C#/.NET 8 toolkit built around ONNX Runtime (GPU) and OpenCvSharp, designed to run custom YOLO models with an optimized end-to-end pipeline. Instead of being limited to person detection (the original YOLOPerson scope), YoloDetect aims to be a reusable detection framework where anyone can plug in their trained model and benefit from best-practice preprocessing and postprocessing techniques to maximize both speed and output quality.
 
 ## System Used
 
@@ -56,6 +56,19 @@ YOLOPerson is a technical project developed in C# .NET Core 8 that utilizes **YO
 ---
 
 # Changelog
+
+## Version 1.0.4
+
+### Project rename: YOLOPerson → YoloDetect
+- Renamed the project to **YoloDetect** to better represent its purpose beyond person-only detection.
+- Updated documentation to reflect the new identity and long-term direction.
+
+### New project focus: plug-and-play custom models + best-practice pipeline
+- Shifted the project vision toward a **reusable detection framework**:
+  - Load and run **custom trained models** (YOLO/ONNX).
+  - Apply **optimized preprocessing** (e.g., letterbox variants) for consistent input handling.
+  - Apply **optimized postprocessing** for fast and accurate results.
+- Goal: provide a baseline that is both **fast** (low allocations, efficient conversions, GPU-friendly) and **high quality** (stable preprocessing, solid postprocessing).
 
 ## Version 1.0.3
 
