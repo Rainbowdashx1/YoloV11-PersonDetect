@@ -70,6 +70,9 @@
   - Apply **optimized postprocessing** for fast and accurate results.
 - Goal: provide a baseline that is both **fast** (low allocations, efficient conversions, GPU-friendly) and **high quality** (stable preprocessing, solid postprocessing).
 
+### Add Version
+- The version was added to maintain a consistent order with the versions
+
 ## Version 1.0.3
 
 ### Letterbox preprocessing improved again
