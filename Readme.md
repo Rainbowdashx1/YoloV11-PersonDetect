@@ -24,8 +24,8 @@
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/Rainbowdashx1/YoloV11-PersonDetect
-   cd YoloV11-PersonDetect
+   git clone https://github.com/Rainbowdashx1/YoloDetect.git
+   cd YoloDetect
    ```
 
 2. **Install dependencies**
